@@ -83,7 +83,15 @@
                         <td><small>{{ JSON.stringify(item.combination) }}</small></td>
                         <td>
                           <!-- Action Buttons -->
-                          <v-btn size="x-small" color="amber-darken-1" @click="openArchiveDialog(item, run.id)" class="mr-2">Save</v-btn>
+                          <v-btn
+                            size="x-small"
+                            color="amber-darken-1"
+                            @click="archiveStrategy(item, run.configuration.id, strategyName)"
+                            :loading="isArchiving(item, strategyName)"
+                            class="mr-2"
+                          >
+                            Save
+                          </v-btn>
                           <v-btn size="x-small" color="deep-purple-lighten-1" @click="applyAndGo(item, run.configuration)">Apply</v-btn>
                         </td>
                       </tr>
@@ -141,6 +149,7 @@ const detailedResults = reactive<{[key: number]: any}>({});
 const topResultsByStrategy = reactive<{[key: number]: any}>({});
 const loadingDetails = ref(new Set<number>());
 const snackbar = reactive({ show: false, message: '', color: 'success' });
+const archivingStatus = ref(new Set<string>());
 
 const archiveDialog = reactive({
   show: false,
@@ -148,6 +157,7 @@ const archiveDialog = reactive({
   name: '',
   notes: '',
   dataToSave: null as any | null,
+  strategyName: '' as string,
 });
 
 const router = useRouter();
@@ -158,6 +168,11 @@ const showSnackbar = (message: string, color: string = 'success') => {
   snackbar.message = message;
   snackbar.color = color;
   snackbar.show = true;
+};
+
+const isArchiving = (item: any, strategyName: string): boolean => {
+    const uniqueId = `${item.combination.id}-${strategyName}`; // Create a unique ID for the button
+    return archivingStatus.value.has(uniqueId);
 };
 
 const handlePanelChange = async (panelId: number | undefined) => {
@@ -181,42 +196,34 @@ const handlePanelChange = async (panelId: number | undefined) => {
   }
 };
 
-const openArchiveDialog = (item: any, runId: number) => {
+const openArchiveDialog = (item: any, runId: number, strategyName: string) => {
   archiveDialog.dataToSave = { item, runId }; // Store item and its parent runId
+  archiveDialog.strategyName = strategyName;
   archiveDialog.name = '';
   archiveDialog.notes = '';
   archiveDialog.show = true;
 };
 
 
-const archiveStrategy = async () => {
-  if (!archiveDialog.name || !archiveDialog.dataToSave) return;
-  
-  // Find the parent run configuration for the item being saved
-  const runId = archiveDialog.dataToSave.runId; // We need to add runId to the data
-  const parentRun = detailedResults[runId];
-  if (!parentRun) {
-      showSnackbar('Could not find parent configuration for this result.', 'error');
-      return;
-  }
+const archiveStrategy = async (resultItem: any, configId: number, strategyName: string) => {
+  const uniqueId = `${resultItem.combination.id}-${strategyName}`;
+  archivingStatus.value.add(uniqueId); // Set loading state
 
-  archiveDialog.isSaving = true;
   try {
     await api.saveToArchive({
-      name: archiveDialog.name,
-      notes: archiveDialog.notes,
-      resultData: archiveDialog.dataToSave.item,
-      // --- NEW: Send the full parent configuration object ---
-      configurationData: parentRun.configuration,
+      configurationId: configId,
+      resultData: resultItem,
+      strategyName: strategyName,
     });
-    showSnackbar(`Strategy '${archiveDialog.name}' saved successfully!`, 'success');
-    archiveDialog.show = false;
+    showSnackbar(`Strategy '${strategyName}' from config ${configId} archived!`, 'success');
   } catch (error) {
-    showSnackbar('Failed to save strategy.', 'error');
+    showSnackbar('Failed to archive strategy.', 'error');
+    console.error(error);
   } finally {
-    archiveDialog.isSaving = false;
+    archivingStatus.value.delete(uniqueId); // Clear loading state
   }
 };
+
 
 const applyAndGo = (resultItem: any, configuration: any) => {
   filterStore.setFiltersAndNavigate(resultItem, configuration, router);

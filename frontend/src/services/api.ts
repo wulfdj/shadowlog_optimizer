@@ -42,9 +42,10 @@ export default {
     getArchivedResults() {
         return apiClient.get('/archive');
     },
-    saveToArchive(payload: { name: string, notes?: string, resultData: object }) {
+    saveToArchive(payload: { configurationId: number, resultData: object, strategyName: string }) {
         return apiClient.post('/archive', payload);
     },
+
     deleteArchivedResult(id: number) {
         return apiClient.delete(`/archive/${id}`);
     },

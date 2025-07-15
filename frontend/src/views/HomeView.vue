@@ -117,8 +117,9 @@
           <v-card-subtitle>Archived: {{ new Date(item.archivedAt).toLocaleString() }}</v-card-subtitle>
           <v-card-text>
             <p><strong>Overall Score: {{ item.resultData.overallScore.toFixed(3) }}</strong></p>
-            <v-chip size="small" class="mr-2">Trades: {{ item.resultData.overallTradeCount }}</v-chip>
-            <v-chip size="small">PF: {{ getBestProfitFactor(item.resultData) }}</v-chip>
+            <v-chip size="small" class="mr-2">Trades: {{ getMetric(item, "totalTradesThisStrategy") }}</v-chip>
+            <v-chip size="small">PF: {{ getMetric(item, "profitFactor") }}</v-chip>
+            <v-chip size="small">WR: {{ getMetric(item, "winRate", true) }}</v-chip>
             <p v-if="item.notes" class="text-body-2 mt-2 font-italic">Notes: "{{ item.notes }}"</p>
           </v-card-text>
           <v-card-actions>
@@ -165,6 +166,28 @@ function formatTimeAgo(timestamp: number): string {
   }
   // For longer times, just show the locale time
   return new Date(timestamp).toLocaleTimeString();
+}
+
+function getMetric(item: any, metricKey: string, asPercent: boolean = false): string | number | undefined {
+  const strategyName = item.strategyName;
+  if (!strategyName) return 'N/A'; // No strategy context
+
+  let metric: any;
+  if (metricKey === 'score') {
+    metric = item.resultData?.strategyScores?.[strategyName];
+  } else {
+    metric = item.resultData?.metrics?.[strategyName]?.[metricKey];
+  }
+
+  console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
+  if (metric === undefined || metric === null) return 'N/A';
+  if (metric === Infinity) return '∞';
+  if (typeof metric !== 'number') return metric;
+
+  if (typeof metric === 'number' && metric % 1 === 0) return metric;
+
+  if (asPercent) return `${(metric * 100).toFixed(1)}%`;
+  return Number(metric).toFixed(2);
 }
 // Helper function to find the best profit factor from all strategies in a result
 function getBestProfitFactor(result: any): string {
@@ -242,6 +265,7 @@ async function fetchData() {
         data.bestResult = data.results?.[0];
         return data;
     });
+    console.log("latestRuns: ", latestRuns);
   } catch (error) {
     console.error("Failed to fetch history details:", error);
   } finally {
@@ -254,6 +278,7 @@ async function fetchData() {
     const archiveResponse = await api.getArchivedResults();
     // Also take the top 3 for the dashboard
     archivedStrategies.value = archiveResponse.data.slice(0, 3);
+    console.log("archived strategies: ", archiveResponse.data);
   } catch (error) {
     console.error("Failed to fetch archived strategies:", error);
   } finally {

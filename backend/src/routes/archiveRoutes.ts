@@ -1,27 +1,42 @@
 import { Router } from "express";
 import { AppDataSource } from "../database/data-source";
 import { ArchivedResult } from "../entities/ArchivedResult";
+import { Configuration } from "../entities/Configuration";
 
 const router = Router();
 
 /**
  * @route   POST /api/archive
- * @desc    Save a single, hand-picked result to the overall history.
+ * @desc    Archive a specific result combination, linking it to its parent configuration.
  */
 router.post("/", async (req, res) => {
-    const { name, notes, resultData, configurationData } = req.body;
+    // We now expect the IDs and the specific result data
+    const { configurationId, resultData, strategyName } = req.body;
 
-    if (!name || !resultData || !configurationData) {
-        return res.status(400).json({ message: "Name, result data, and configuration data are required." });
+    if (!configurationId || !resultData || !strategyName) {
+        return res.status(400).json({ message: "Configuration ID, result data, and strategy name are required." });
     }
 
     const archiveRepo = AppDataSource.getRepository(ArchivedResult);
-    // --- NEW: Pass configurationData when creating the entity ---
-    const newArchivedResult = archiveRepo.create({ name, notes, resultData, configurationData });
+    const configRepo = AppDataSource.getRepository(Configuration);
 
     try {
+        // Find the parent configuration to link to
+        const parentConfig = await configRepo.findOneBy({ id: configurationId });
+        if (!parentConfig) {
+            return res.status(404).json({ message: "Parent configuration not found." });
+        }
+
+        // Create the new entity, providing the full Configuration object for the relation
+        const newArchivedResult = archiveRepo.create({
+            configuration: parentConfig,
+            resultData: resultData,
+            strategyName: strategyName,
+        });
+
         await archiveRepo.save(newArchivedResult);
         res.status(201).json(newArchivedResult);
+
     } catch (error) {
         console.error("Error saving to archive:", error);
         res.status(500).json({ message: "Failed to save to archive." });

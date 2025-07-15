@@ -19,9 +19,9 @@
         <v-card class="fill-height">
           <v-card-title class="d-flex align-center">
             <v-icon color="amber" class="mr-2" :icon="mdiStar"></v-icon>
-            {{ item.name }}
+            {{ item.configuration.name }}
           </v-card-title>
-          <v-card-subtitle>Archived on: {{ new Date(item.archivedAt).toLocaleString() }}</v-card-subtitle>
+          <v-card-subtitle>Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  Strategy: <v-chip size="small" color="blue-grey" class="ml-1">{{ item.strategyName }}</v-chip></v-card-subtitle>
           
           <v-card-text>
             <p v-if="item.notes" class="font-italic mb-4">"{{ item.notes }}"</p>
@@ -29,25 +29,29 @@
             <!-- Key Performance Indicators -->
             <div class="kpi-grid mb-4">
               <div>
-                <div class="text-caption">Overall Score</div>
-                <div class="text-h6">{{ item.resultData.overallScore.toFixed(3) }}</div>
+                <div class="text-caption">Strategy Score</div>
+                <div class="text-h6">{{ getMetric(item, 'score') || 'N/A' }}</div>
               </div>
               <div>
-                <div class="text-caption">Best Win Rate</div>
-                <div class="text-h6">{{ getBestMetric(item.resultData, 'winRate', true) }}</div>
+                <div class="text-caption">Win Rate</div>
+                <div class="text-h6">{{ getMetric(item, 'winRate', true) || 'N/A' }}</div>
               </div>
               <div>
-                <div class="text-caption">Best Profit Factor</div>
-                <div class="text-h6">{{ getBestMetric(item.resultData, 'profitFactor') }}</div>
+                <div class="text-caption">Profit Factor</div>
+                <div class="text-h6">{{ getMetric(item, 'profitFactor') || 'N/A' }}</div>
               </div>
               <div>
-                <div class="text-caption">Total Trades</div>
-                <div class="text-h6">{{ item.resultData.overallTradeCount }}</div>
+                <div class="text-caption">Trades</div>
+                <div class="text-h6">{{ getMetric(item, 'totalTradesThisStrategy') || 'N/A' }}</div>
               </div>
             </div>
 
             <v-divider></v-divider>
-
+            <div class="mt-2">
+              <strong>Time Settings:</strong> {{ getPredefinedTime(item.configuration) || 'Any' }}
+              <br/>
+              <strong>Setup:</strong> {{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}
+            </div>
             <!-- Configuration Details -->
             <v-expansion-panels>
               <v-expansion-panel>
@@ -55,11 +59,17 @@
                 <v-expansion-panel-text>
             <div class="mt-4">
               <v-row dense>
-                <v-col cols="12" sm="6">
+                <v-col cols="6" sm="6">
                   <strong>Timeframe:</strong> {{ item.configurationData.settings.dataSheetName }}
                 </v-col>
-                 <v-col cols="12" sm="6">
+                 <v-col cols="6" sm="6">
                   <strong>Min Trades:</strong> {{ item.configurationData.settings.minTradeCount }}
+                </v-col>
+                <v-col cols="6" sm="6">
+                  <strong>Min SL Ratio:</strong> {{ item.configurationData.settings.minSLToTPRatio }}
+                </v-col>
+                <v-col cols="6" sm="6">
+                  <strong>Max TP Ratio:</strong> {{ item.configurationData.settings.maxTPToSLRatio }}
                 </v-col>
               </v-row>
               
@@ -80,7 +90,7 @@
 
           <v-card-actions>
             <v-btn
-              icon="mdi-delete-outline"
+              :icon="mdiDeleteOutline"
               variant="text"
               color="grey"
               @click="confirmDelete(item)"
@@ -99,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { mdiStar } from '@mdi/js';
+import { mdiStar, mdiDeleteOutline } from '@mdi/js';
 import { ref, onMounted, reactive } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
@@ -112,6 +122,8 @@ interface ArchivedItem {
   archivedAt: string;
   resultData: any;
   configurationData: any;
+  strategyName?: string;
+  configuration: any;
 }
 
 const archivedResults = ref<ArchivedItem[]>([]);
@@ -124,6 +136,47 @@ const showSnackbar = (message: string, color: string = 'success') => {
   snackbar.color = color;
   snackbar.show = true;
 };
+
+// These are the same helpers we created for HistoryView, now reused here.
+function getPredefinedFilter(config: any, filterName: 'Setup' | 'Session'): string | null {
+    const filters = config.settings?.predefinedFilters || [];
+    const found = filters.find((f: any) => f.columnHeader === filterName);
+    return found ? found.condition : null;
+}
+
+function getPredefinedTime(config: any): string | null {
+    const filters = config.settings?.predefinedFilters || [];
+    const found = filters.find((f: any) => f.type === 'timeRange');
+    if (!found) return null;
+
+    const { minMinutes, maxMinutes } = found.condition;
+    if (minMinutes && maxMinutes) return `${minMinutes} - ${maxMinutes}`;
+    if (minMinutes) return `After ${minMinutes}`;
+    if (maxMinutes) return `Before ${maxMinutes}`;
+    return null;
+}
+
+function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = false): string | number | undefined {
+  const strategyName = item.strategyName;
+  if (!strategyName) return 'N/A'; // No strategy context
+
+  let metric: any;
+  if (metricKey === 'score') {
+    metric = item.resultData?.strategyScores?.[strategyName];
+  } else {
+    metric = item.resultData?.metrics?.[strategyName]?.[metricKey];
+  }
+
+  console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
+  if (metric === undefined || metric === null) return 'N/A';
+  if (metric === Infinity) return '∞';
+  if (typeof metric !== 'number') return metric;
+
+  if (typeof metric === 'number' && metric % 1 === 0) return metric;
+
+  if (asPercent) return `${(metric * 100).toFixed(1)}%`;
+  return Number(metric).toFixed(2);
+}
 
 async function fetchArchived() {
     try {

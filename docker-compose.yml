@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    command: npm run dev # Explicitly set the command for the API
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - db
+      - redis # Add dependency on redis
+    # Add the REDIS_URL environment variable
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/dax_optimizer_db
+      - REDIS_URL=redis://redis:6379
+
+  worker:
+    build: ./backend
+    command: node --max-old-space-size=8192 -r ts-node/register  src/jobs/optimizationWorker.ts # Explicitly set the command for the API
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/dax_optimizer_db
+      - REDIS_URL=redis://redis:6379
+  db:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dax_optimizer_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # New Redis service
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:

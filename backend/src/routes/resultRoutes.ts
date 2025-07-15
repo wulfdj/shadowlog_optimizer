@@ -1,0 +1,70 @@
+import { Router } from "express";
+import { AppDataSource } from "../database/data-source";
+import { OptimizationResult } from "../entities/OptimizationResult";
+
+const router = Router();
+
+/**
+ * @route   GET /api/results
+ * @desc    Get a list of all completed optimization runs for the history page.
+ */
+router.get("/", async (req, res) => {
+    const resultRepo = AppDataSource.getRepository(OptimizationResult);
+    try {
+        const results = await resultRepo.find({
+            order: { completedAt: "DESC" },
+            // Using 'relations' is more explicit and reliable than relying on eager loading alone
+            relations: {
+                configuration: true,
+            },
+            // Now that relations are loaded, select can be used to trim the payload
+            select: {
+                id: true,
+                startedAt: true,
+                completedAt: true,
+                configuration: {
+                    id: true,
+                    name: true,
+                    settings: true,
+                }
+            }
+        });
+        res.json(results);
+    } catch (error) {
+        console.error("Error fetching result list:", error);
+        res.status(500).json({ message: "Error fetching result list" });
+    }
+});
+
+/**
+ * @route   GET /api/results/:id
+ * @desc    Get the full details for a single optimization run, including the results blob.
+ */
+router.get("/:id", async (req, res) => {
+    const resultId = parseInt(req.params.id, 10);
+    if (isNaN(resultId)) {
+        return res.status(400).json({ message: "Invalid Result ID." });
+    }
+
+    const resultRepo = AppDataSource.getRepository(OptimizationResult);
+    try {
+        // --- THE CORE FIX IS HERE ---
+        // We replace `findOneBy` with `findOne` and explicitly load the relation.
+        const result = await resultRepo.findOne({
+            where: { id: resultId },
+            relations: {
+                configuration: true,
+            },
+        });
+
+        if (!result) {
+            return res.status(404).json({ message: "Result not found." });
+        }
+        res.json(result);
+    } catch (error) {
+        console.error(`Error fetching result ${resultId}:`, error);
+        res.status(500).json({ message: "Error fetching result" });
+    }
+});
+
+export default router;

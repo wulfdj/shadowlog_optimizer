@@ -1,0 +1,13 @@
+# Ignore development dependencies and local build artifacts
+node_modules
+dist
+*.log
+
+# Ignore all .env files...
+.env
+.env.*
+
+# --- THE FIX ---
+# ...EXCEPT for the production one, which is needed during the build.
+# The "!" character negates the previous rule for this specific file.
+!/.env.production

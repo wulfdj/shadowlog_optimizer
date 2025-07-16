@@ -34,4 +34,3 @@ app.use(vuetify) // Use Vuetify
 
 app.mount('#app')
 
-console.log("BaseURL: " + import.meta.env.VITE_API_BASE_URL);

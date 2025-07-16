@@ -19,6 +19,8 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
+console.log("BaseURL: " + import.meta.env.VITE_API_BASE_URL);
+
 export default defineComponent({
   name: 'App',
 });

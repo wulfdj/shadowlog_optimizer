@@ -5,12 +5,17 @@ services:
   frontend:
     build:
       context: ./frontend
+    restart: always
+    ports:
+      - "8080:80"
     # We don't need to expose ports here; the reverse proxy will connect to it.
 
   backend:
     build: ./backend
     restart: always # Automatically restart if it crashes
     command: npm run start # Assumes you have a 'start' script for production
+    ports:
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgres://user:password@db:5432/dax_optimizer_db
       - REDIS_URL=redis://redis:6379

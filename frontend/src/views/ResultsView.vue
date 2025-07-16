@@ -35,9 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import FilterButtonRenderer from '@/components/FilterButtonRenderer.vue';
-import ArchiveButtonRenderer from '@/components/ArchiveButtonRenderer.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/services/api';
 
@@ -77,6 +75,8 @@ const defaultColDef = ref({
 });
 
 
+
+
 // The column definitions remain the same. This part is working correctly.
 const columnDefs = computed<ColDef[]>(() => {
     // Return empty array if there is no data to prevent errors.
@@ -88,17 +88,6 @@ const columnDefs = computed<ColDef[]>(() => {
     const strategyNames = Object.keys(firstResult.metrics || {});
 
     const baseCols: ColDef[] = [
-        {
-            headerName: 'Actions',
-            // Replace the cellRenderer
-            cellRenderer: ArchiveButtonRenderer,
-            // Pass the showSnackbar function as a prop to the renderer
-            
-            filter: false,
-            sortable: false,
-            pinned: 'left',
-            width: 260, // Widen the column to fit both buttons
-        },
         {
             headerName: 'Actions',
             cellRenderer: (params: any) => {
@@ -122,19 +111,19 @@ const columnDefs = computed<ColDef[]>(() => {
             width: 140,
         },
         { headerName: 'Rank', valueGetter: 'node.rowIndex + 1', width: 90, sortable: false, filter: false, pinned: 'left' },
-        { headerName: 'Overall Score', field: 'overallScore', valueFormatter: p => p.value.toFixed(4), pinned: 'left', width: 150 },
-        { headerName: 'Filter Combination', field: 'combination', valueFormatter: p => JSON.stringify(p.value), flex: 2, wrapText: true, autoHeight: true, cellStyle: { 'line-height': '20px' } },
+        { headerName: 'Overall Score', field: 'overallScore', valueFormatter: (p: any) => p.value.toFixed(4), pinned: 'left', width: 150 },
+        { headerName: 'Filter Combination', field: 'combination', valueFormatter: (p: any) => JSON.stringify(p.value), flex: 2, wrapText: true, autoHeight: true, cellStyle: { 'line-height': '20px' } },
         { headerName: 'Overall Trades', field: 'overallTradeCount', width: 150 },
     ];
     
     const strategyCols: ColDef[] = strategyNames.map(name => ({
         headerName: `${name}`,
         children: [
-            { headerName: 'Score', field: `strategyScores.${name}`, valueFormatter: p => p.value?.toFixed(4) || 'N/A', width: 130 },
-            { headerName: 'Win Rate', field: `metrics.${name}.winRate`, valueFormatter: p => p.value !== undefined ? `${(p.value * 100).toFixed(2)}%` : 'N/A', width: 130 },
-            { headerName: 'PF', field: `metrics.${name}.profitFactor`, valueFormatter: p => typeof p.value === 'number' ? p.value.toFixed(2) : String(p.value), width: 120 },
+            { headerName: 'Score', field: `strategyScores.${name}`, valueFormatter: (p: any) => p.value?.toFixed(4) || 'N/A', width: 130 },
+            { headerName: 'Win Rate', field: `metrics.${name}.winRate`, valueFormatter: (p: any) => p.value !== undefined ? `${(p.value * 100).toFixed(2)}%` : 'N/A', width: 130 },
+            { headerName: 'PF', field: `metrics.${name}.profitFactor`, valueFormatter: (p: any) => typeof p.value === 'number' ? p.value.toFixed(2) : String(p.value), width: 120 },
             { headerName: 'Trades', field: `metrics.${name}.totalTradesThisStrategy`, width: 120 },
-            { headerName: 'Net Pips', field: `metrics.${name}.netProfit`, valueFormatter: p => p.value?.toFixed(2) || 'N/A', width: 130 }
+            { headerName: 'Net Pips', field: `metrics.${name}.netProfit`, valueFormatter: (p: any) => p.value?.toFixed(2) || 'N/A', width: 130 }
         ]
     }));
 

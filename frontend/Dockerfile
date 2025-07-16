@@ -1,6 +1,6 @@
 # --- Stage 1: Build the Vue application ---
 # Use a Node.js image as the builder. 'alpine' is a lightweight version.
-FROM node:18-alpine AS builder
+FROM node:lts-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app

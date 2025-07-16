@@ -15,7 +15,7 @@
           <v-alert type="info" prominent>No history found.</v-alert>
         </div>
         
-        <v-expansion-panels v-else @update:model-value="handlePanelChange">
+        <v-expansion-panels v-else @update:model-value="val => handlePanelChange(val as number | undefined)">
           <v-expansion-panel v-for="run in history" :key="run.id" :value="run.id">
             <v-expansion-panel-title>
               <div class="panel-title-grid">
@@ -87,7 +87,7 @@
                             size="x-small"
                             color="amber-darken-1"
                             @click="archiveStrategy(item, run.configuration.id, strategyName)"
-                            :loading="isArchiving(item, strategyName)"
+                            :loading="isArchiving(run.id, strategyName)"
                             class="mr-2"
                           >
                             Save
@@ -105,22 +105,6 @@
       </v-col>
     </v-row>
 
-    <!-- Archive Dialog -->
-    <v-dialog v-model="archiveDialog.show" persistent width="500">
-      <v-card>
-        <v-card-title><span class="headline">Save Strategy to History</span></v-card-title>
-        <v-card-text>
-          <v-text-field v-model="archiveDialog.name" label="Strategy Name" autofocus></v-text-field>
-          <v-textarea v-model="archiveDialog.notes" label="Notes (Optional)" rows="2"></v-textarea>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn text @click="archiveDialog.show = false">Cancel</v-btn>
-          <v-btn text color="primary" @click="archiveStrategy" :loading="archiveDialog.isSaving">Save</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
       {{ snackbar.message }}
     </v-snackbar>
@@ -132,15 +116,17 @@ import { ref, onMounted, reactive } from 'vue';
 import api from '@/services/api';
 import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
-import { getTopResultsByStrategy } from '@/utils/resultProcessor'; // Import the refactored utility
+import { getTopResultsByStrategy } from '@/utils/resultProcessor';
 
 // --- State Definitions ---
 interface HistoryRun {
   id: number;
   completedAt: string;
+  startedAt: string;
   configuration: {
     id: number;
     name: string;
+    settings: any;
   };
 }
 
@@ -150,15 +136,6 @@ const topResultsByStrategy = reactive<{[key: number]: any}>({});
 const loadingDetails = ref(new Set<number>());
 const snackbar = reactive({ show: false, message: '', color: 'success' });
 const archivingStatus = ref(new Set<string>());
-
-const archiveDialog = reactive({
-  show: false,
-  isSaving: false,
-  name: '',
-  notes: '',
-  dataToSave: null as any | null,
-  strategyName: '' as string,
-});
 
 const router = useRouter();
 const filterStore = useFilterStore();
@@ -170,12 +147,15 @@ const showSnackbar = (message: string, color: string = 'success') => {
   snackbar.show = true;
 };
 
-const isArchiving = (item: any, strategyName: string): boolean => {
-    const uniqueId = `${item.combination.id}-${strategyName}`; // Create a unique ID for the button
+// --- CORE FIX 1: Use a correct and consistent unique ID ---
+// The unique ID for a loading state is the parent run's ID plus the strategy name.
+const isArchiving = (runId: number, strategyName: any): boolean => {
+    const uniqueId = `${runId}-${strategyName}`;
     return archivingStatus.value.has(uniqueId);
 };
 
-const handlePanelChange = async (panelId: number | undefined) => {
+const handlePanelChange = async (val: unknown) => {
+  const panelId = val as number | undefined;
   if (panelId === undefined || detailedResults[panelId] || loadingDetails.value.has(panelId)) {
     return;
   }
@@ -187,7 +167,6 @@ const handlePanelChange = async (panelId: number | undefined) => {
         data.results = JSON.parse(data.results);
     }
     detailedResults[panelId] = data;
-    // Process the data and store it for the template
     topResultsByStrategy[panelId] = getTopResultsByStrategy(data.results);
   } catch (error) {
     console.error(`Failed to fetch details for run ${panelId}:`, error);
@@ -196,18 +175,12 @@ const handlePanelChange = async (panelId: number | undefined) => {
   }
 };
 
-const openArchiveDialog = (item: any, runId: number, strategyName: string) => {
-  archiveDialog.dataToSave = { item, runId }; // Store item and its parent runId
-  archiveDialog.strategyName = strategyName;
-  archiveDialog.name = '';
-  archiveDialog.notes = '';
-  archiveDialog.show = true;
-};
-
-
-const archiveStrategy = async (resultItem: any, configId: number, strategyName: string) => {
-  const uniqueId = `${resultItem.combination.id}-${strategyName}`;
-  archivingStatus.value.add(uniqueId); // Set loading state
+// --- CORE FIX 2: Use the correct unique ID for setting the loading state ---
+const archiveStrategy = async (resultItem: any, configId: number, strategyName: any) => {
+  // Use the same ID generation logic as the isArchiving function.
+  // Note: This means all "Save" buttons in one strategy's table will show a spinner. This is acceptable.
+  const uniqueId = `${configId}-${strategyName}`;
+  archivingStatus.value.add(uniqueId);
 
   try {
     await api.saveToArchive({
@@ -220,10 +193,9 @@ const archiveStrategy = async (resultItem: any, configId: number, strategyName: 
     showSnackbar('Failed to archive strategy.', 'error');
     console.error(error);
   } finally {
-    archivingStatus.value.delete(uniqueId); // Clear loading state
+    archivingStatus.value.delete(uniqueId); // Clear loading state using the same ID.
   }
 };
-
 
 const applyAndGo = (resultItem: any, configuration: any) => {
   filterStore.setFiltersAndNavigate(resultItem, configuration, router);

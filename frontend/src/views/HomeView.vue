@@ -142,7 +142,7 @@ import { useRouter } from 'vue-router';
 const latestRuns = ref<any[]>([]);
 const archivedStrategies = ref<any[]>([]);
 const activeJobs = ref<any[]>([]); // New state for in-progress jobs
-let pollingInterval: number | undefined; // To hold the interval ID
+let pollingInterval: any; // To hold the interval ID
 
 const loading = reactive({
     history: true,

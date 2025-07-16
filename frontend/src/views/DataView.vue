@@ -44,6 +44,7 @@ Import New CSV
             label="Select CSV File"
             accept=".csv"
             show-size
+            :multiple="false"
           ></v-file-input>
         </v-card-text>
         <v-card-actions>
@@ -63,7 +64,7 @@ Import New CSV
 </v-dialog>
 
 <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="4000">
-    <!-- ... -->
+     {{ snackbar.message }}
 </v-snackbar>
 </v-container>
 </template>
@@ -84,7 +85,7 @@ const importDialog = reactive({
   show: false,
   isUploading: false,
   timeframe: '5M',
-  file: null as File[] | null,
+  file: null as File | null,
 });
 
 const snackbar = reactive({ show: false, message: '', color: 'success' });

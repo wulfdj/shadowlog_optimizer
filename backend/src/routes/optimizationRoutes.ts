@@ -21,7 +21,7 @@ router.get("/active", async (req, res) => {
             // Retrieve the enriched data we added when the job was created
             configId: job.data.configId,
             name: job.data.configurationName,
-            totalCombinations: job.data.totalCombinations,
+            totalCombinations: job.data.totalCombinations
         }));
 
         res.json(jobsToDisplay);

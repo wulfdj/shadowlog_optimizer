@@ -43,6 +43,11 @@
                 </v-row>
                 <p class="text-subtitle-2 mt-2">Time Range (e.g., 08:00 to 16:30)</p>
                 <v-row dense>
+                     <v-checkbox
+      v-model="formState.enableTimeShift"
+      label="Enable Time Shift Analysis (+/- 2 hours)"
+      messages="When enabled, the optimizer will run extra tests on time windows 2 hours before and 2 hours after the specified range."
+    ></v-checkbox>
                   <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMin" label="Min Time"></v-text-field></v-col>
                   <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMax" label="Max Time"></v-text-field></v-col>
                 </v-row>
@@ -72,18 +77,6 @@
                </v-card-item>
             </v-card>
             
-            <!--
-             <v-card class="mb-4">
-               <v-card-item>
-                <v-card-title>Ranking Weights</v-card-title>
-                 <v-slider v-model="formState.rankingWeights.profitFactor" label="Profit Factor" thumb-label="always" step="0.01" min="0" max="1" color="green" ></v-slider>
-                 <v-slider v-model="formState.rankingWeights.winRate" label="Win Rate" thumb-label="always" step="0.01" min="0" max="1" color="blue"></v-slider>
-                 <v-slider v-model="formState.rankingWeights.tradeCount" label="Trade Count" thumb-label="always" step="0.01" min="0" max="1" color="orange"></v-slider>
-                 <v-slider v-model="formState.rankingWeights.netProfitPips" label="Net Profit Pips" thumb-label="always" step="0.01" min="0" max="1" color="purple"></v-slider>
-               </v-card-item>
-            </v-card> -->
-
-
             <!-- Combinations to Test -->
             <v-card >
               <v-card-item>
@@ -189,6 +182,7 @@ const getDefaultFormState = () => ({
   maxTPToSLRatio: 2,
   minProfitFactor: 1.5,
   minWinRate: 60,
+  enableTimeShift: false,
   // Use a reactive array of objects for easier v-for binding
   combinations: ref([
     { name: 'Gaussian', enabled: false },
@@ -231,6 +225,7 @@ const buildSettingsPayload = () => {
   const settings = {
     dataSheetName: formState.dataSheetName,
     minTradeCount: formState.minTradeCount,
+    enableTimeShift: formState.enableTimeShift,
     maxCombinationsToTest: formState.maxCombinationsToTest,
     rankingWeights: { ...formState.rankingWeights },
     
@@ -279,6 +274,7 @@ const startEdit = (configToEdit: any) => {
 
   // Deconstruct the saved settings object to populate the form
   const settings = configToEdit.settings;
+  formState.enableTimeShift = settings.enableTimeShift || false;
   formState.dataSheetName = settings.dataSheetName || '5M';
   formState.minTradeCount = settings.minTradeCount || 5;
   formState.maxCombinationsToTest = settings.maxCombinationsToTest || 100000;

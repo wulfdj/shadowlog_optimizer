@@ -51,6 +51,9 @@ export default {
     deleteArchivedResult(id: number) {
         return apiClient.delete(`/archive/${id}`);
     },
+    importArchivedResult(parsedData: object) {
+        return apiClient.post('/archive/import', { parsedData });
+    },
     getActiveJobs() {
         return apiClient.get('/optimize/active');
     },

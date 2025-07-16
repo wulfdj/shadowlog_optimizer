@@ -5,6 +5,11 @@
         <h1>Archived Strategies</h1>
         <p>A hand-picked list of your best-performing, long-term strategies with full context.</p>
       </v-col>
+      <v-col class="text-right">
+        <v-btn color="secondary" @click="importDialog.show = true">
+          Import from CSV
+        </v-btn>
+      </v-col>
     </v-row>
 
     <v-row v-if="archivedResults.length === 0">
@@ -105,6 +110,29 @@
      <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
         {{ snackbar.message }}
     </v-snackbar>
+     <v-dialog v-model="importDialog.show" persistent max-width="800px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Import Archived Strategy</span>
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-2">Paste the semicolon-separated line from your spreadsheet here.</p>
+          <v-textarea
+            v-model="importDialog.importString"
+            label="Strategy CSV String"
+            placeholder="2025-07-15 14:35:21;2,98..."
+            rows="4"
+            autofocus
+            clearable
+          ></v-textarea>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="importDialog.show = false">Cancel</v-btn>
+          <v-btn color="primary" text @click="handleImport" :loading="importDialog.isImporting">Import</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -125,6 +153,76 @@ interface ArchivedItem {
   strategyName?: string;
   configuration: any;
 }
+
+const importDialog = reactive({
+  show: false,
+  isImporting: false,
+  importString: '',
+});
+
+// --- Parsing Logic ---
+function parseImportString(input: string): object | null {
+  try {
+    console.log("parse import string: ", input);
+    const parts = input.trim().split(';'); // Split by tabs
+    if (parts.length < 12) throw new Error("Invalid format: not enough columns.");
+
+    // --- Extract Metrics ---
+    const resultMetrics = {
+      overallScore: parseFloat(parts[1].replace(',', '.')),
+      profitFactor: parseFloat(parts[2].replace(',', '.')),
+      winRate: parseFloat(parts[3].replace('%', '').replace(',', '.')) / 100,
+      overallTradeCount: parseInt(parts[4], 10),
+      netProfit: parseFloat(parts[5].replace('.', '').replace(',', '.')),
+      combination: JSON.parse(parts[6]),
+    };
+
+    // --- Extract Configuration Settings ---
+    const timeParts = parts[10].split(' - ');
+    const predefinedFilters = [
+      { columnHeader: 'Setup', type: 'exact', condition: parts[8] },
+      { type: 'timeRange', columnHeader: 'Time', condition: { minMinutes: timeParts[0], maxMinutes: timeParts[1] } },
+    ];
+
+    const ratioParts = parts[12].split(",");
+    const minSlTPRatioPart = ratioParts[0].replace("Min SL to TP Ratio: ", "");
+    const maxTPSLRatioPart = ratioParts[1].replace("Max TP to SL Ratio: ", "");
+    console.log(resultMetrics, minSlTPRatioPart, maxTPSLRatioPart)
+    
+    // Add other predefined filters if they exist in the string
+
+    const settings = {
+      dataSheetName: parts[7],
+      minTradeCount: 5, // Default or parse from string if available
+      maxCombinationsToTest: 100000, // Default
+      predefinedFilters: predefinedFilters,
+      combinationsToTest: parts[11].split(',').map(s => s.trim()),
+      minSLToTPRatio: parseFloat(minSlTPRatioPart),
+      maxTPToSLRatio: parseFloat(maxTPSLRatioPart),
+      minProfitFactor: 1.5,
+      minWinRate: 60,
+      rankingWeights: {
+        profitFactor: 0.40,
+        winRate: 0.30,
+        tradeCount: 0.15,
+        netProfitPips: 0.15,
+      },
+    };
+
+    return {
+      configurationName: `${parts[8]} ${parts[7]} (${parts[10]})`, // Auto-generate a name
+      settings: settings,
+      resultData: {
+        strategyName: parts[9],
+        metrics: resultMetrics,
+      },
+    };
+  } catch (error) {
+    console.error("Parsing failed:", error);
+    return null;
+  }
+}
+
 
 const archivedResults = ref<ArchivedItem[]>([]);
 const filterStore = useFilterStore();
@@ -160,6 +258,13 @@ function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = f
   const strategyName = item.strategyName;
   if (!strategyName) return 'N/A'; // No strategy context
 
+  if (!item.resultData.metrics) {
+    if (metricKey === 'score' ) return item.resultData.overallScore;
+    if (metricKey === 'totalTradesThisStrategy') return item.resultData.overallTradeCount;
+    if (metricKey === 'profitFactor') return item.resultData.profitFactor;
+    if (metricKey === 'winRate' && asPercent) return `${(item.resultData.winRate * 100).toFixed(1)}%`
+  }
+
   let metric: any;
   if (metricKey === 'score') {
     metric = item.resultData?.strategyScores?.[strategyName];
@@ -167,7 +272,7 @@ function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = f
     metric = item.resultData?.metrics?.[strategyName]?.[metricKey];
   }
 
-  console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
+  //console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
   if (metric === undefined || metric === null) return 'N/A';
   if (metric === Infinity) return '∞';
   if (typeof metric !== 'number') return metric;
@@ -232,6 +337,31 @@ function applyAndGo(archivedItem: ArchivedItem) {
         router
     );
 }
+
+const handleImport = async () => {
+  if (!importDialog.importString) return;
+
+  const parsedData = parseImportString(importDialog.importString);
+  if (!parsedData) {
+    showSnackbar("Failed to parse import string. Please check the format.", "error");
+    return;
+  }
+
+  importDialog.isImporting = true;
+  try {
+    await api.importArchivedResult(parsedData);
+    console.log("imported data:", parsedData);
+    showSnackbar("Strategy imported successfully!", "success");
+    await fetchArchived(); // Refresh the list
+    importDialog.show = false;
+    importDialog.importString = '';
+  } catch (error: any) {
+    showSnackbar(error.response?.data?.message || "Import failed.", "error");
+  } finally {
+    importDialog.isImporting = false;
+  }
+};
+
 
 onMounted(fetchArchived);
 </script>

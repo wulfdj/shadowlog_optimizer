@@ -53,7 +53,7 @@
 
             <v-divider></v-divider>
             <div class="mt-2">
-              <strong>Time Settings:</strong> {{ getPredefinedTime(item.configuration) || 'Any' }}
+              <strong>Time Settings:</strong> {{ getPredefinedTime(item.configuration) || 'Any' }} <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> {{ getTimeRangeFromCombination(item) }}</span>
               <br/>
               <strong>Setup:</strong> {{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}
             </div>
@@ -252,6 +252,13 @@ function getPredefinedTime(config: any): string | null {
     if (minMinutes) return `After ${minMinutes}`;
     if (maxMinutes) return `Before ${maxMinutes}`;
     return null;
+}
+
+function getTimeRangeFromCombination(item: ArchivedItem): string | null {
+  //console.log("getTimeRangeFromCombination: ", item);
+  const combination = item.resultData.combination;
+  if (!combination.TimeWindow) return null;
+  return combination.TimeWindow;
 }
 
 function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = false): string | number | undefined {

@@ -3,7 +3,14 @@ import { redisConnection } from './redisConnection'; // Import the shared connec
 
 // Explicitly provide the connection details to the Queue constructor
 const optimizationQueue = new Queue('optimization-jobs', {
-    connection: redisConnection
+    connection: redisConnection,
+    defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 60000,
+        }
+    }
 });
 
 // The function now accepts the full job data object

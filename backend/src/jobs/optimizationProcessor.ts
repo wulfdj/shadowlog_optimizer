@@ -290,125 +290,186 @@ function applyPredefinedFilters(trades: Trade[], filters: any[]): Trade[] {
 }
 
 
+// ===================================================================================
+//  SUB-OPTIMIZATION: Runs the test for a SINGLE given time window.
+// ===================================================================================
+async function runOptimizationForTimeWindow(
+    preFilteredTrades: Trade[],
+    settings: any,
+    timeWindow: { min: string; max: string } | null,
+    job: Job
+): Promise<any[]> {
+    console.log(`--- Starting Sub-Run for Time Window: ${timeWindow ? `${timeWindow.min} - ${timeWindow.max}` : 'Any'} ---`);
+
+    // 1. Apply the specific time window filter for this sub-run
+    const timeFilteredTrades = applyPredefinedFilters(preFilteredTrades, [{
+        type: 'timeRange',
+        condition: { minMinutes: timeWindow?.min, maxMinutes: timeWindow?.max }
+    }]);
+
+    console.log(`Trades in this time window: ${timeFilteredTrades.length}`);
+    if (timeFilteredTrades.length < (settings.minTradeCount || 5)) {
+        console.log(`--- Sub-Run skipped due to insufficient trades. ---`);
+        return []; // Return empty array if not enough trades
+    }
+
+    // 2. Generate combinations (this is now much faster as it's done once per master run)
+    const enabledCombinationDefs = SELECTABLE_COMBINATIONS.filter(def => 
+        settings.combinationsToTest.includes(def.name)
+    );
+    const combinatorialCriteria = enabledCombinationDefs.flatMap(def => def.criterias);
+    const combinations = generateCombinationsIterative(combinatorialCriteria);
+    const totalCombinations = Math.min(combinations.length, settings.maxCombinationsToTest || 100000);
+
+    // 3. Loop and Score for this time window
+    const resultsForThisWindow = [];
+    for (let i = 0; i < totalCombinations; i++) {
+        const combo = combinations[i];
+        // Add the time window to the combination so we know where this result came from
+        const comboWithTime = { ...combo, TimeWindow: timeWindow ? `${timeWindow.min}-${timeWindow.max}` : 'Any' };
+        
+        const { filteredTrades, ltaCombination } = applyFilters(timeFilteredTrades, combo);
+        if (filteredTrades.length < (settings.minTradeCount || 5)) continue;
+
+        const { resultsByStrategy, overallTradeCount } = calculateMetricsForAllStrategies(filteredTrades, ltaCombination, settings, combo);
+        if (!resultsByStrategy) continue;
+
+        const strategyScores: { [key: string]: number } = {};
+        let sumOfScores = 0;
+        let scoredStrategies = 0;
+        Object.keys(resultsByStrategy).forEach(strategyName => {
+            const score = calculateCompositeScore(resultsByStrategy[strategyName], settings.rankingWeights);
+            strategyScores[strategyName] = score;
+            if (isFinite(score)) {
+                sumOfScores += score;
+                scoredStrategies++;
+            }
+        });
+        const overallScore = scoredStrategies > 0 ? sumOfScores / scoredStrategies : -Infinity;
+        if (isFinite(overallScore) && overallScore > -Infinity) {
+            resultsForThisWindow.push({
+                combination: comboWithTime, // Save the combination that includes the time window
+                overallScore,
+                overallTradeCount,
+                metrics: resultsByStrategy,
+                strategyScores,
+            });
+        }
+    }
+    console.log(`--- Sub-Run finished, found ${resultsForThisWindow.length} valid combinations. ---`);
+    return resultsForThisWindow;
+}
+
+
+// ===================================================================================
+//  RESILIENT MASTER OPTIMIZATION: Now with checkpointing and resume capability.
+// ===================================================================================
 export const runOptimization = async (job: Job) => {
     const startTime = new Date();
     const { configId } = job.data;
-    console.log(`Worker processing job ${job.id} for config ID: ${configId} at ${startTime.toISOString()}`);
-    
+    console.log(`MASTER JOB ${job.id} STARTED for config ID: ${configId}`);
 
     const configRepo = AppDataSource.getRepository(Configuration);
     const tradeRepo = AppDataSource.getRepository(Trade);
     const resultRepo = AppDataSource.getRepository(OptimizationResult);
 
     try {
+        // --- Step 1: Initialize State and Configuration ---
         const config = await configRepo.findOneBy({ id: configId });
         if (!config) throw new Error(`Config ${configId} not found.`);
-
         const settings = config.settings as any;
-        console.log("Config: ", settings);
-        // Fetch all trades for the specified timeframe (e.g., '5M', '15M').
-        // You would need a column in your Trade entity to store the timeframe
-        // if you were supporting multiple timeframes in one table.
-        // For now, we assume all data is for the intended timeframe.
+
+        // --- CORE RESUME LOGIC ---
+        // Check if we are resuming a previously started job.
+        const isResuming = !!job.data.state;
+        // Initialize state either from the existing job data or as a new object.
+        const state = job.data.state || {
+            completedTimeWindows: [],
+            aggregatedResults: [],
+        };
+
+        if (isResuming) {
+            console.log(`Resuming job ${job.id}. State found:`, state);
+        }
+
+        // --- Step 2: Fetch and Pre-filter data ONCE ---
         let allTrades = await tradeRepo.find();
-        console.log(`Fetched ${allTrades.length} total trades from the database.`);
+        const nonTimeFilters = settings.predefinedFilters.filter((f: any) => f.type !== 'timeRange');
+        const preFilteredTrades = applyPredefinedFilters(allTrades, nonTimeFilters);
+        
+        // --- Step 3: Generate the full list of time windows to test ---
+        const timeWindowsToTest = [];
+        const baseTimeFilter = settings.predefinedFilters.find((f: any) => f.type === 'timeRange');
+        const baseTime = baseTimeFilter?.condition;
+        if (baseTime && baseTime.minMinutes && baseTime.maxMinutes) {
+            timeWindowsToTest.push({ min: baseTime.minMinutes, max: baseTime.maxMinutes });
+            if (settings.enableTimeShift) {
+                const minH = parseInt(baseTime.minMinutes.split(':')[0]);
+                const maxH = parseInt(baseTime.maxMinutes.split(':')[0]);
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH - 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH - 2).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH + 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH + 2).padStart(2, '0')}:00` });
 
-        // 1. Apply Predefined Filters (THE CORE CHANGE)
-        const preFilteredTrades = applyPredefinedFilters(allTrades, settings.predefinedFilters);
-        console.log(`Trades after applying predefined filters: ${preFilteredTrades.length}`);
+                timeWindowsToTest.push({ min: `${String(minH).padStart(2, '0')}:00`, max: `${String(maxH - 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH).padStart(2, '0')}:00`, max: `${String(maxH - 2).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH).padStart(2, '0')}:00`, max: `${String(maxH + 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH).padStart(2, '0')}:00`, max: `${String(maxH + 2).padStart(2, '0')}:00` });
 
-        if (preFilteredTrades.length === 0) {
-            console.log("No trades remained after pre-filtering. Aborting optimization.");
-            await job.updateProgress(100);
-            // Optionally save a result indicating no data was found
-            const emptyResult = resultRepo.create({
-                configuration: config,
-                results: { message: "No trades matched the predefined filters." },
-            });
-            await resultRepo.save(emptyResult);
-            return { success: true, validCombinations: 0, message: "No trades matched predefined filters." };
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH - 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH - 2).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH + 1).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH + 2).padStart(2, '0')}:00` });
+
+                timeWindowsToTest.push({ min: `${String(minH - 1).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH - 2).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH + 1).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+                timeWindowsToTest.push({ min: `${String(minH + 2).padStart(2, '0')}:00`, max: `${String(maxH).padStart(2, '0')}:00` });
+            }
+        } else {
+            timeWindowsToTest.push(null);
         }
 
-        // 2. Generate Combinations to Test (No changes here)
-        const enabledCombinationDefs = SELECTABLE_COMBINATIONS.filter(def => 
-            settings.combinationsToTest.includes(def.name)
-        );
-        const combinatorialCriteria = enabledCombinationDefs.flatMap(def => def.criterias);
-        const combinations = generateCombinationsIterative(combinatorialCriteria); //generateCombinations(combinatorialCriteria, 0, {});
+        console.log("Full list of time windows to test:", timeWindowsToTest);
+        
+        // --- Step 4: Loop through windows, skipping completed ones ---
+        let completedRunsInThisSession = 0;
+        for (const timeWindow of timeWindowsToTest) {
+            const windowId = timeWindow ? `${timeWindow.min}-${timeWindow.max}` : 'Any';
 
-        //console.log(combinations);
-
-        const totalCombinations = Math.min(combinations.length, settings.maxCombinationsToTest || 100000);
-        console.log(`Generated ${totalCombinations} combinations to test.`);
-
-        await job.updateData({
-            ...job.data,
-            totalCombinations: totalCombinations
-        });
-        await job.updateProgress(0);
-        // 3. Loop, Calculate, and Score (No changes here)
-        const results = [];
-        for (let i = 0; i < totalCombinations; i++) {
-            const combo = combinations[i];
-            const { filteredTrades, ltaCombination } = applyFilters(preFilteredTrades, combo);
-            
-            if (filteredTrades.length < (settings.minTradeCount || 5)) continue;
-            if (ltaCombination) {
-                //console.log("Combo has LTA: ", combo);
+            // --- CORE RESUME LOGIC ---
+            if (state.completedTimeWindows.includes(windowId)) {
+                console.log(`Skipping already completed time window: ${windowId}`);
+                continue; // Skip to the next window
             }
+
+            // Run the sub-optimization for the current window
+            const windowResults = await runOptimizationForTimeWindow(preFilteredTrades, settings, timeWindow, job);
             
-            const { resultsByStrategy, overallTradeCount } = calculateMetricsForAllStrategies(filteredTrades, ltaCombination, settings, combo);
-            if (resultsByStrategy === null || resultsByStrategy === undefined) {
-                //console.log("combination has no valid results: ", combo);
-                if (i % 500 === 0) { // Update progress less frequently
-                    const progress = Math.round((i / totalCombinations) * 100);
-                    await job.updateProgress(Math.min(progress, 100));
-                }
-                continue;
-            }
+            // Add the new results to our persistent state object
+            state.aggregatedResults.push(...windowResults);
+            state.completedTimeWindows.push(windowId);
+            completedRunsInThisSession++;
+
+            // --- CHECKPOINT: Save the updated state back to the job ---
+            // This is the most critical step for resiliency.
+            await job.updateData({ ...job.data, state: state });
+            console.log(`CHECKPOINT SAVED for job ${job.id}. Completed window: ${windowId}`);
+
+            // Update master job progress
+            const totalProgress = (state.completedTimeWindows.length / timeWindowsToTest.length) * 100;
+            await job.updateProgress(Math.min(totalProgress, 100));
             
-            const strategyScores: { [key: string]: number } = {};
-            let sumOfScores = 0;
-            let scoredStrategies = 0;
-
-            Object.keys(resultsByStrategy).forEach(strategyName => {
-                const score = calculateCompositeScore(resultsByStrategy[strategyName], settings.rankingWeights);
-                strategyScores[strategyName] = score;
-                if (isFinite(score)) {
-                    sumOfScores += score;
-                    scoredStrategies++;
-                }
-            });
-
-            const overallScore = scoredStrategies > 0 ? sumOfScores / scoredStrategies : -Infinity;
-
-            if (isFinite(overallScore) && overallScore > -Infinity) {
-                results.push({
-                    combination: combo,
-                    overallScore,
-                    overallTradeCount,
-                    metrics: resultsByStrategy,
-                    strategyScores,
-                });
-            }
-            
-            // --- CORE FIX 2: Periodically yield the event loop ---
-            if (i % 500 === 0 && i > 0) {
-                console.log(`Tested ${i} / ${totalCombinations} combinations...`);
-                
-                const progress = Math.round((i / totalCombinations) * 100);
-                await job.updateProgress(Math.min(progress, 100));
-
-                // This is the key line. It pauses the loop for a "tick",
-                // allowing pending operations like the lock renewal to execute.
-                await new Promise(resolve => setImmediate(resolve));
-            }
+            // Yield event loop between heavy tasks
+            await new Promise(resolve => setImmediate(resolve)); 
         }
-
-        // 4. Sort and Save Top Results (No changes here)
-        results.sort((a, b) => b.overallScore - a.overallScore);
-        const topResults = results.slice(0, 100);
-        console.log(`Optimization finished. Found ${results.length} valid combinations. Best score: ${topResults[0]?.overallScore || 'N/A'}`);
+        
+        // --- Step 5: Finalize and Save Overall Best Results ---
+        console.log(`All sub-runs complete. Total valid combinations found: ${state.aggregatedResults.length}`);
+        state.aggregatedResults.sort((a, b) => b.overallScore - a.overallScore);
+        const topResults = state.aggregatedResults.slice(0, 100);
 
         const newResult = resultRepo.create({
             configuration: config,
@@ -416,13 +477,13 @@ export const runOptimization = async (job: Job) => {
             startedAt: startTime,
         });
         await resultRepo.save(newResult);
-        console.log(`Saved top ${topResults.length} results to database for config ${configId}.`);
-
+        console.log(`MASTER JOB FINISHED. Saved top ${topResults.length} overall results.`);
+        
         await job.updateProgress(100);
-        return { success: true, validCombinations: results.length };
+        return { success: true, validCombinations: state.aggregatedResults.length };
 
     } catch (error) {
-        console.error(`Job ${job.id} failed:`, error);
-        throw error;
+        console.error(`MASTER JOB ${job.id} FAILED:`, error);
+        throw error; // Re-throw to make BullMQ mark it as failed
     }
 };

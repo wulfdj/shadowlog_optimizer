@@ -60,22 +60,22 @@
             <div class="mt-4">
               <v-row dense>
                 <v-col cols="6" sm="6">
-                  <strong>Timeframe:</strong> {{ item.configurationData.settings.dataSheetName }}
+                  <strong>Timeframe:</strong> {{ item.configuration.settings.dataSheetName }}
                 </v-col>
                  <v-col cols="6" sm="6">
-                  <strong>Min Trades:</strong> {{ item.configurationData.settings.minTradeCount }}
+                  <strong>Min Trades:</strong> {{ item.configuration.settings.minTradeCount }}
                 </v-col>
                 <v-col cols="6" sm="6">
-                  <strong>Min SL Ratio:</strong> {{ item.configurationData.settings.minSLToTPRatio }}
+                  <strong>Min SL Ratio:</strong> {{ item.configuration.settings.minSLToTPRatio }}
                 </v-col>
                 <v-col cols="6" sm="6">
-                  <strong>Max TP Ratio:</strong> {{ item.configurationData.settings.maxTPToSLRatio }}
+                  <strong>Max TP Ratio:</strong> {{ item.configuration.settings.maxTPToSLRatio }}
                 </v-col>
               </v-row>
               
               <div class="mt-2">
                 <strong>Predefined Filters:</strong>
-                <pre><code>{{ JSON.stringify(item.configurationData.settings.predefinedFilters, null, 2) }}</code></pre>
+                <pre><code>{{ JSON.stringify(item.configuration.settings.predefinedFilters, null, 2) }}</code></pre>
               </div>
 
               <div class="mt-2">

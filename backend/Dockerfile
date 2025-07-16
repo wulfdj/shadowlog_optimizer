@@ -13,7 +13,7 @@ RUN npm run build
 
 # After the build, we can remove the devDependencies to make the final image smaller
 # The --omit=dev flag is available in npm v7+
-RUN npm prune --production
+#RUN npm prune --production
 
 # Expose the port the application runs on
 EXPOSE 3000

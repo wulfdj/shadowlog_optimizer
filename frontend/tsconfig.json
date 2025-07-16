@@ -1,4 +1,12 @@
 {
+  "compilerOptions": {
+    "target": "ESNext",
+    // ... other options
+    "types": [
+      "node",
+      "vite/client" // <-- ADD THIS LINE
+    ]
+  },
   "files": [],
   "references": [
     {

@@ -53,7 +53,8 @@ import { useFilterStore } from '@/stores/filterStore';
 import api from '@/services/api';
 
 import { AgGridVue } from "ag-grid-vue3";
-import type { ColDef } from 'ag-grid-community';
+import { AllCommunityModule, type ColDef, ModuleRegistry } from 'ag-grid-community';
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const router = useRouter();
 const filterStore = useFilterStore();

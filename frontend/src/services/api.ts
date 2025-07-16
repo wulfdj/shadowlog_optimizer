@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-    baseURL: '/api',
+    // Vite will replace this with the correct string during dev or build.
+    baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     }
@@ -43,6 +44,7 @@ export default {
         return apiClient.get('/archive');
     },
     saveToArchive(payload: { configurationId: number, resultData: object, strategyName: string }) {
+        console.log("saveToArchive: ", payload);
         return apiClient.post('/archive', payload);
     },
 

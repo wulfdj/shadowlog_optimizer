@@ -2,13 +2,14 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    #build: ./backend
+    image: shadowlog-optimizer/backend
     command: npm run dev # Explicitly set the command for the API
     ports:
       - "3000:3000"
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+    #volumes:
+    #  - ./backend:/app
+    #  - /app/node_modules
     depends_on:
       - db
       - redis # Add dependency on redis
@@ -18,11 +19,11 @@ services:
       - REDIS_URL=redis://redis:6379
 
   worker:
-    build: ./backend
+    image: shadowlog-optimizer/backend
     command: node --max-old-space-size=8192 -r ts-node/register  src/jobs/optimizationWorker.ts # Explicitly set the command for the API
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+    #volumes:
+    #  - ./backend:/app
+    #  - /app/node_modules
     depends_on:
       - db
       - redis

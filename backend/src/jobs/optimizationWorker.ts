@@ -1,44 +1,30 @@
-
 import { Worker } from 'bullmq';
 import { redisConnection } from './redisConnection';
-import os from 'os';
 import path from 'path';
-import { AppDataSource } from '../database/data-source';
-import { runMasterOptimization } from './masterJobProcessor'; // Import the new master
 
-// The path to the sandboxed CONSUMER worker
-const consumerProcessorPath = path.join(process.cwd(), 'dist', 'jobs', 'sandboxedProcessor.js');
+// The path to the COMPILED JavaScript file that will execute the Go binary.
+const processorPath = path.join(process.cwd(), 'dist', 'jobs', 'masterJobProcessor.js');
 
-const numConsumers = Math.max(1, os.cpus().length - 2); // Leave 1 for OS, 1 for Master
+console.log(`--- Worker Process Started (PID: ${process.pid}) ---`);
+console.log(`Master Orchestrator Processor: ${processorPath}`);
 
-console.log(`--- Worker Farm Manager Started ---`);
-console.log(`Spawning 1 Master Worker and ${numConsumers} Consumer Workers...`);
+// We only need one master orchestrator, as the parallelism is now handled inside Go.
+const worker = new Worker('optimization-jobs', processorPath, {
+    connection: redisConnection,
+    concurrency: 1, // Process one big optimization (which spawns Go) at a time.
+    lockDuration: 7200000, // 2 hour lock for a potentially very long job
+});
 
-// Initialize DB connection for the master worker
-AppDataSource.initialize().then(() => {
-    // --- The Master Worker ---
-    // This worker ONLY handles the 'master-run' job name.
-    // It runs in the main process.
-    new Worker('optimization-jobs', runMasterOptimization, {
-        connection: redisConnection,
-        concurrency: 1, // Only one master job at a time
-        removeOnComplete: { count: 100 },
-        removeOnFail: { count: 500 },
-        lockDuration: 300000,
-    });
-    console.log('Master worker initialized and listening.');
-}).catch(console.error);
+worker.on('completed', (job, result) => {
+  console.info(`Job ${job?.id} (${job.name}) completed. Result:`, result);
+});
 
+worker.on('failed', (job, err) => {
+  console.error(`Job ${job?.id} (${job.name}) failed with error: ${err.message}`);
+});
 
-// --- The Consumer Worker Farm ---
-// These workers ONLY handle the 'consume-combinations' job name.
-for (let i = 0; i < numConsumers; i++) {
-    new Worker('optimization-jobs', consumerProcessorPath, {
-        connection: redisConnection,
-        concurrency: 1, // Each sandboxed process handles one combination at a time
-        removeOnComplete: { count: 100 },
-        removeOnFail: { count: 500 },
-        lockDuration: 300000,
-    });
-    console.log(`Consumer worker #${i + 1} initialized.`);
-}
+worker.on('error', err => {
+    console.error(`Worker encountered an error:`, err);
+});
+
+console.log('Worker is up and listening for jobs on queue: optimization-jobs');

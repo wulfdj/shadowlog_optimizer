@@ -1,24 +1,41 @@
-FROM node:18
+# --- Stage 1: Build the Go binary ---
+FROM golang:1.24.5-alpine3.22 AS go-builder
+
+WORKDIR /src
+
+# Copy the go.mod and go.sum files to cache dependencies
+COPY go-optimizer/go.mod go-optimizer/go.sum ./
+RUN go mod download
+
+# Copy the Go source code
+COPY go-optimizer/ .
+
+# Build the Go application into a static executable
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o optimizer .
+
+RUN ls -la /src
+
+# --- Stage 2: Build the Node.js application ---
+FROM node:24-alpine
 
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy Node.js source code
 COPY . .
 
-# --- THE CRUCIAL BUILD STEP ---
-# This runs "tsc" which compiles src/*.ts into dist/*.js
+# Compile the TypeScript code
 RUN npm run build
 
-# After the build, we can remove the devDependencies to make the final image smaller
-# The --omit=dev flag is available in npm v7+
-#RUN npm prune --production
+# --- Copy the built Go binary from the builder stage ---
+COPY --from=go-builder /src/optimizer /app/go-optimizer/optimizer
 
-# Expose the port the application runs on
+RUN chmod +x /app/go-optimizer/optimizer
+
+RUN ls -la /app/go-optimizer/
+
 EXPOSE 3000
-
-# The command to run the application. 
-# This is now handled by the 'command' directive in docker-compose.prod.yml
-# but it's good practice to have a default CMD here.
 CMD [ "npm", "run", "start" ]

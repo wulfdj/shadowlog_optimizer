@@ -11,7 +11,7 @@ services:
     # We don't need to expose ports here; the reverse proxy will connect to it.
 
   backend:
-    build: ./backend
+    image: shadowlog-optimizer/backend
     restart: always # Automatically restart if it crashes
     command: npm run start # Assumes you have a 'start' script for production
     ports:
@@ -25,7 +25,7 @@ services:
       - redis
 
   worker:
-    build: ./backend
+    image: shadowlog-optimizer/backend
     restart: always
     # Use the memory flag for production
     command: node --max-old-space-size=4096 -r ts-node/register src/jobs/optimizationWorker.ts

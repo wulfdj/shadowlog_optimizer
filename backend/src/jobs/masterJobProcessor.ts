@@ -10,6 +10,7 @@ export default async function (job: SandboxedJob): Promise<any>  {
     console.log(`--- NODE ORCHESTRATOR FOR JOB ${job.id} STARTED ---`);
 
     const { configId } = job.data;
+    const { highPriority} = job.data;
 
     try {
         if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -32,6 +33,7 @@ export default async function (job: SandboxedJob): Promise<any>  {
         
         // Pass the config ID as a command-line argument.
         const goArgs = [String(configId)];
+        if (highPriority) goArgs.push("high");
         
         console.log(`Executing Go optimizer: ${goExecutablePath} ${goArgs.join(' ')}`);
         

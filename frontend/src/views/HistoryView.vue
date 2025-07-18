@@ -18,6 +18,14 @@
         <v-expansion-panels v-else @update:model-value="val => handlePanelChange(val as number | undefined)">
           <v-expansion-panel v-for="run in history" :key="run.id" :value="run.id">
             <v-expansion-panel-title>
+              <v-btn
+                    :icon="mdiDeleteOutline"
+                    variant="text"
+                    size="small"
+                    color="grey"
+                    title="Delete this history entry"
+                    @click.stop="confirmDelete(run)"
+                  ></v-btn> 
               <div class="panel-title-grid">
                 <!-- Column 1: Main Name & Timestamps -->
                 <div class="font-weight-bold">{{ run.configuration.name }}</div>
@@ -44,6 +52,8 @@
                     </div>
                   </v-tooltip>
                 </div>
+
+               
               </div>
             </v-expansion-panel-title>
 
@@ -67,6 +77,7 @@
                         <th class="text-left">Profit Factor</th>
                         <th class="text-left">Net Profit</th>
                         <th class="text-left">Trades</th>
+                        <th class="text-left">Combo Count</th>
                         <th class="text-left">Combination</th>
                         <th class="text-left" style="width: 170px;">Actions</th>
                       </tr>
@@ -80,6 +91,7 @@
                         <td>{{ typeof item.metrics[strategyName]?.profitFactor === 'number' ? item.metrics[strategyName]?.profitFactor.toFixed(2) : '∞' }}</td>
                         <td>{{ item.metrics[strategyName]?.netProfit?.toFixed(2) }}</td>
                         <td>{{ item.metrics[strategyName]?.totalTradesThisStrategy }}</td>
+                        <td>{{ Object.keys(item.combination).length }}</td>
                         <td><small>{{ JSON.stringify(item.combination) }}</small></td>
                         <td>
                           <!-- Action Buttons -->
@@ -117,6 +129,7 @@ import api from '@/services/api';
 import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
 import { getTopResultsByStrategy } from '@/utils/resultProcessor';
+import { mdiDeleteOutline } from '@mdi/js';
 
 // --- State Definitions ---
 interface HistoryRun {
@@ -242,6 +255,20 @@ function getPredefinedTime(run: HistoryRun): string | null {
     if (minMinutes) return `After ${minMinutes}`;
     if (maxMinutes) return `Before ${maxMinutes}`;
     return null;
+}
+
+async function confirmDelete(runToDelete: HistoryRun) {
+    if (confirm(`Are you sure you want to permanently delete the history for "${runToDelete.configuration.name}"? This cannot be undone.`)) {
+        try {
+            await api.deleteResult(runToDelete.id);
+            showSnackbar("History entry deleted successfully.", "success");
+            // Remove the item from the local array for instant UI feedback
+            history.value = history.value.filter(run => run.id !== runToDelete.id);
+        } catch (error) {
+            showSnackbar("Failed to delete history entry.", "error");
+            console.error(error);
+        }
+    }
 }
 
 onMounted(fetchHistoryList);

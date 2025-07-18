@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -17,6 +18,61 @@ import (
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
+// Helper to convert minutes to HH:mm string (for debugging/logging)
+func minutesToTime(minutes int) string {
+	h := minutes / 60
+	m := minutes % 60
+	return fmt.Sprintf("%02d:%02d", h, m)
+}
+
+// generateTimeWindows generates a list of time window configurations based on a base window and shift parameters.
+// Each generated window is a map with "minMinutes" and "maxMinutes" keys as integers.
+func generateTimeWindows(baseMin, baseMax int, minShiftHours, maxShiftHours float64, stepMinutes int) []map[string]int {
+	var timeWindows []map[string]int
+
+	// Use a map to ensure uniqueness of generated time windows (min-max pairs)
+	uniqueWindows := make(map[string]struct{})
+
+	minShiftMins := int(minShiftHours * 60)
+	maxShiftMins := int(maxShiftHours * 60)
+
+	// Generate possible shifts for both start and end times
+	var offsets []int
+	// Include 0 offset to ensure the base window itself is always considered
+	for offset := minShiftMins; offset <= maxShiftMins; offset += stepMinutes {
+		offsets = append(offsets, offset)
+	}
+
+	// Always add the original base window first
+	originalWindow := map[string]int{"minMinutes": baseMin, "maxMinutes": baseMax}
+	windowKey := fmt.Sprintf("%d-%d", baseMin, baseMax)
+	if _, exists := uniqueWindows[windowKey]; !exists {
+		timeWindows = append(timeWindows, originalWindow)
+		uniqueWindows[windowKey] = struct{}{}
+	}
+
+	// Generate combinations of start and end shifts
+	for _, startOffset := range offsets {
+		for _, endOffset := range offsets {
+			newMin := baseMin + startOffset
+			newMax := baseMax + endOffset
+
+			// Ensure newMin is less than newMax and there's a reasonable minimum duration (e.g., 15 minutes)
+			// Adjust the minimum duration as per your requirements
+			if newMin < newMax && (newMax-newMin >= 15) {
+				currentWindow := map[string]int{"minMinutes": newMin, "maxMinutes": newMax}
+				currentKey := fmt.Sprintf("%d-%d", newMin, newMax)
+
+				if _, exists := uniqueWindows[currentKey]; !exists {
+					timeWindows = append(timeWindows, currentWindow)
+					uniqueWindows[currentKey] = struct{}{}
+				}
+			}
+		}
+	}
+	return timeWindows
+}
 
 // MarshalJSON is a special function name that the `encoding/json` package looks for.
 // If it exists on a struct, it will be used instead of the default marshalling logic.
@@ -74,6 +130,12 @@ var SELECTABLE_COMBINATIONS = []map[string]interface{}{
 		"name": "Gaussian",
 		"criterias": []interface{}{
 			map[string]interface{}{"columnHeader": "Gaussian_Trend_1", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_2", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_3", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_4", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_5", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_6", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+			map[string]interface{}{"columnHeader": "Gaussian_Trend_7", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
 			// ... add other Gaussian criteria maps here
 		},
 	},
@@ -453,6 +515,32 @@ func applyFilters(trades []Trade, combo Combination) ([]Trade, bool) {
 tradeLoop:
 	for _, trade := range trades {
 		for key, condition := range combo {
+			// --- Special handling for the TimeFilter ---
+			if key == "TimeFilter" {
+				timeConditionMap, ok := condition.(map[string]int)
+				if !ok {
+					log.Printf("Warning: TimeFilter condition malformed (expected map[string]int), got %T. Skipping trade for this combination.", condition)
+					continue tradeLoop // This combination is invalid if its time filter is malformed
+				}
+
+				tradeTime, err := timeToMinutes(trade.Time) // Reusing the existing timeToMinutes helper
+				if err != nil {
+					log.Printf("Error parsing trade time '%s': %v. Skipping trade for this time filter.", trade.Time, err)
+					continue tradeLoop // Skip this trade if its time cannot be parsed
+				}
+
+				minVal, minOk := timeConditionMap["minMinutes"]
+				maxVal, maxOk := timeConditionMap["maxMinutes"]
+
+				if minOk && tradeTime < minVal {
+					continue tradeLoop // Trade is before the minimum time of this window
+				}
+				if maxOk && tradeTime > maxVal {
+					continue tradeLoop // Trade is after the maximum time of this window
+				}
+				continue // This time filter applied successfully, move to the next filter in the combo
+			}
+
 			if key == "TimeWindow" {
 				continue
 			}
@@ -815,6 +903,87 @@ func fetchAllTrades(pool *pgxpool.Pool, timeframe string) ([]Trade, error) {
 	return trades, nil
 }
 
+// extractTimeWindowFromFilters searches the predefined filters for a "Time" column
+// with "timeRange" type and extracts its min and max minutes.
+// It returns (minMinutes, maxMinutes, found, error).
+func extractTimeWindowFromFilters(filters []interface{}) (string, string, bool, error) {
+	for _, filterInterface := range filters {
+		filter, ok := filterInterface.(map[string]interface{})
+		if !ok {
+			continue // Skip if not a map
+		}
+
+		columnHeader, ok := filter["columnHeader"].(string)
+		if !ok || columnHeader != "Time" {
+			continue // Skip if not "Time" column
+		}
+
+		filterType, ok := filter["type"].(string)
+		if !ok || filterType != "timeRange" {
+			continue // Skip if not a "timeRange" type
+		}
+
+		condition, ok := filter["condition"].(map[string]interface{})
+		if !ok {
+			return "", "", false, fmt.Errorf("malformed 'condition' in Time filter: expected map[string]interface{}")
+		}
+
+		minStr, minOk := condition["minMinutes"].(string)
+		maxStr, maxOk := condition["maxMinutes"].(string)
+
+		if !minOk && !maxOk {
+			return "", "", false, fmt.Errorf("time filter found but neither 'minMinutes' nor 'maxMinutes' are strings")
+		}
+
+		var minString, maxString string
+		var err error
+
+		if minOk {
+			minString = minStr
+			if err != nil {
+				return "", "", false, fmt.Errorf("invalid 'minMinutes' time format in Time filter '%s': %w", minStr, err)
+			}
+		} else {
+			minString = "0:00" // Default to start of day if not specified
+		}
+
+		if maxOk {
+			maxString = maxStr
+			if err != nil {
+				return "", "", false, fmt.Errorf("invalid 'maxMinutes' time format in Time filter '%s': %w", maxStr, err)
+			}
+		} else {
+			maxString = "24:00"
+		}
+
+		return minString, maxString, true, nil
+	}
+	return "", "", false, nil // No "Time" range filter found
+}
+
+func removeTimeFilter(filters []interface{}) []interface{} {
+	var filtered []interface{}
+	for _, filterInterface := range filters {
+		filterMap, ok := filterInterface.(map[string]interface{})
+		if !ok {
+			// If it's not a map, keep it (or handle as an error/log if unexpected)
+			filtered = append(filtered, filterInterface)
+			continue
+		}
+
+		columnHeader, ok := filterMap["columnHeader"].(string)
+		if ok && columnHeader == "Time" {
+			// This is the "Time" filter, so we skip it (do not append to 'filtered')
+			log.Println("Removed 'Time' filter from predefined filters.")
+			continue
+		}
+
+		// Keep all other filters
+		filtered = append(filtered, filterInterface)
+	}
+	return filtered
+}
+
 func main() {
 	startTime := time.Now() // Record start time
 	log.Printf("--- GO OPTIMIZER ENGINE STARTED at %s ----", startTime.Format(time.RFC3339))
@@ -833,6 +1002,15 @@ func main() {
 		log.Fatalf("Invalid Config ID provided: %s", os.Args[1])
 	}
 	log.Printf("Processing job for Config ID: %d", configID)
+
+	numWorkers := runtime.NumCPU() / 2
+	if len(os.Args) > 2 {
+		priority := os.Args[2]
+		if priority == "high" {
+			numWorkers = runtime.NumCPU()
+			log.Println("Running Optimizer with all cores")
+		}
+	}
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -873,6 +1051,17 @@ func main() {
 		log.Fatal("FATAL: 'predefinedFilters' setting is missing or not an array.")
 	}
 
+	predefinedMinTime, predefinedMaxTime, timeFilterFound, err := extractTimeWindowFromFilters(predefinedFilters)
+	// --- Time Window Optimization Logic ---
+	enableTimeWindowOptimization, _ := settings["enableTimeShift"].(bool)
+
+	if err != nil {
+		log.Fatalf("Error extracting time window from predefined filters: %v", err)
+	}
+	if timeFilterFound && enableTimeWindowOptimization {
+		predefinedFilters = removeTimeFilter(predefinedFilters)
+	}
+
 	// Apply the filters
 	finalTrades, err := applyPredefinedFilters(allTrades, predefinedFilters)
 	if err != nil {
@@ -885,6 +1074,51 @@ func main() {
 		// Output an empty result so the orchestrator knows it's done
 		fmt.Print("[]")
 		os.Exit(0)
+	}
+
+	// Safely retrieve time window parameters with defaults
+	timeWindowShiftStepMinutes := 60
+	//if step, ok := settings["timeWindowShiftStepMinutes"].(float64); ok { // JSON numbers are often float64
+	//	timeWindowShiftStepMinutes = int(step)
+	//}
+
+	minShiftHours := -2.0
+	//if minS, ok := settings["timeWindowMinShiftHours"].(float64); ok {
+	//	minShiftHours = minS
+	//}
+
+	maxShiftHours := 2.0
+	//if maxS, ok := settings["timeWindowMaxShiftHours"].(float64); ok {
+	//	maxShiftHours = maxS
+	//}
+
+	baseMinStr := ""
+	baseMaxStr := ""
+	if enableTimeWindowOptimization && timeFilterFound {
+		baseMaxStr = predefinedMaxTime
+		baseMinStr = predefinedMinTime
+	}
+
+	baseMinMinutes, err := timeToMinutes(baseMinStr) // Reusing existing timeToMinutes
+	if err != nil {
+		log.Fatalf("FATAL: Invalid baseTimeWindow.min format: %v", err)
+	}
+	baseMaxMinutes, err := timeToMinutes(baseMaxStr) // Reusing existing timeToMinutes
+	if err != nil {
+		log.Fatalf("FATAL: Invalid baseTimeWindow.max format: %v", err)
+	}
+
+	var timeWindowVariations []map[string]int
+	if enableTimeWindowOptimization {
+		log.Printf("Time window optimization enabled. Base: %s-%s. Shifting by %d mins from %v to %v hours.",
+			baseMinStr, baseMaxStr, timeWindowShiftStepMinutes, minShiftHours, maxShiftHours)
+		timeWindowVariations = generateTimeWindows(baseMinMinutes, baseMaxMinutes, minShiftHours, maxShiftHours, timeWindowShiftStepMinutes)
+		log.Printf("Generated %d time window variations.", len(timeWindowVariations))
+	} else {
+		log.Println("Time window optimization disabled. Using base time window only.")
+		timeWindowVariations = []map[string]int{
+			{"minMinutes": baseMinMinutes, "maxMinutes": baseMaxMinutes},
+		}
 	}
 
 	// --- Step 4: Generate Combinations (with corrected selection logic) ---
@@ -929,12 +1163,26 @@ func main() {
 
 	// --- The main processing logic ---
 	log.Println("Starting combination generation...")
-	allCombinations := generateCombinations(enabledCombinationDefs)
-	log.Printf("Combinations %d generated", len(allCombinations))
+	baseCombinations := generateCombinations(enabledCombinationDefs)
+	log.Printf("Combinations %d generated (excluding time windows)", len(baseCombinations))
 	//allCombinationsJSON, _ := json.Marshal(allCombinations)
 	//log.Println(string(allCombinationsJSON))
 
-	numWorkers := 4
+	// --- Augment base combinations with time window variations ---
+	var allFinalCombinations []Combination
+	for _, baseCombo := range baseCombinations {
+		for _, timeWindowConditionMap := range timeWindowVariations {
+			newCombo := make(Combination)
+			for k, v := range baseCombo {
+				newCombo[k] = v
+			}
+			// Add the time window filter using a special key "TimeFilter"
+			newCombo["TimeFilter"] = timeWindowConditionMap
+			allFinalCombinations = append(allFinalCombinations, newCombo)
+		}
+	}
+	log.Printf("Total final combinations after time window augmentation: %d", len(allFinalCombinations))
+
 	resultsChan := make(chan Result, 100000)
 	var wg sync.WaitGroup
 
@@ -945,17 +1193,18 @@ func main() {
 		Trades: finalTrades,
 	}
 	for w := 1; w <= numWorkers; w++ {
-		// Create a channel for jobs to be sent to workers
-		// This channel will be closed after all combinations are sent
-		// This is a common pattern for distributing work to a pool of workers
 
 		wg.Add(1)
 
 		go combinationWorker(w, comboChan, resultsChan, &wg, inputData)
 	}
+	// Create a channel for jobs to be sent to workers
+	// This channel will be closed after all combinations are sent
+	// This is a common pattern for distributing work to a pool of workers
+
 	go func() {
 		defer close(comboChan)
-		for _, combo := range allCombinations {
+		for _, combo := range allFinalCombinations {
 			comboChan <- combo
 		}
 	}()

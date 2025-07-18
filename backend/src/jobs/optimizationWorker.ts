@@ -9,21 +9,40 @@ console.log(`--- Worker Process Started (PID: ${process.pid}) ---`);
 console.log(`Master Orchestrator Processor: ${processorPath}`);
 
 // We only need one master orchestrator, as the parallelism is now handled inside Go.
-const worker = new Worker('optimization-jobs', processorPath, {
+const highPriorityWorker = new Worker('high-priority-jobs', processorPath, {
     connection: redisConnection,
     concurrency: 1, // Process one big optimization (which spawns Go) at a time.
     lockDuration: 7200000, // 2 hour lock for a potentially very long job
 });
 
-worker.on('completed', (job, result) => {
+const lowPriorityWorker = new Worker('low-priority-jobs', processorPath, {
+    connection: redisConnection,
+    concurrency: 1, // Process one big optimization (which spawns Go) at a time.
+    lockDuration: 7200000, // 2 hour lock for a potentially very long job
+});
+
+lowPriorityWorker.on('completed', (job, result) => {
   console.info(`Job ${job?.id} (${job.name}) completed. Result:`, result);
 });
 
-worker.on('failed', (job, err) => {
+lowPriorityWorker.on('failed', (job, err) => {
   console.error(`Job ${job?.id} (${job.name}) failed with error: ${err.message}`);
 });
 
-worker.on('error', err => {
+lowPriorityWorker.on('error', err => {
+    console.error(`Worker encountered an error:`, err);
+});
+
+
+highPriorityWorker.on('completed', (job, result) => {
+  console.info(`Job ${job?.id} (${job.name}) completed. Result:`, result);
+});
+
+highPriorityWorker.on('failed', (job, err) => {
+  console.error(`Job ${job?.id} (${job.name}) failed with error: ${err.message}`);
+});
+
+highPriorityWorker.on('error', err => {
     console.error(`Worker encountered an error:`, err);
 });
 

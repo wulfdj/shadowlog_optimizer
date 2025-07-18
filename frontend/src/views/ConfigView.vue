@@ -40,16 +40,27 @@
                 <v-row dense>
                   <v-col cols="6"><v-checkbox v-model="formState.predefinedFilters.entryCandleHasWick" label="Entry Candle Has Wick"></v-checkbox></v-col>
                   <v-col cols="6"><v-checkbox v-model="formState.predefinedFilters.setupCandleHasWick" label="Setup Candle Has Wick"></v-checkbox></v-col>
+                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.entryDistanceMax" label="Entry Distance Max"></v-text-field></v-col>
+                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.breakoutDistanceMax" label="Breakout Distance Max"></v-text-field></v-col>
+                  
+                  <v-col cols="6">
+                    <p class="text-subtitle-1">Candle Size</p>
+                    <v-row dense>
+                     <v-col cols="6"> <v-text-field v-model="formState.predefinedFilters.candleSize.min" label="Min"></v-text-field></v-col>
+                      <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.candleSize.max" label="Max"></v-text-field></v-col>
+                    </v-row>
+                  </v-col>
                 </v-row>
-                <p class="text-subtitle-2 mt-2">Time Range (e.g., 08:00 to 16:30)</p>
+                <p class="text-subtitle-1 mt-2">Time Range (e.g., 08:00 to 16:30)</p>
                 <v-row dense>
-                     <v-checkbox
-      v-model="formState.enableTimeShift"
-      label="Enable Time Shift Analysis (+/- 2 hours)"
-      messages="When enabled, the optimizer will run extra tests on time windows 2 hours before and 2 hours after the specified range."
-    ></v-checkbox>
-                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMin" label="Min Time"></v-text-field></v-col>
-                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMax" label="Max Time"></v-text-field></v-col>
+                     
+                  
+                  
+                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMin" label="Min Time" type="time" :rules="[rules.required]"></v-text-field></v-col>
+                  <v-col cols="6"><v-text-field v-model="formState.predefinedFilters.timeMax" label="Max Time" type="time" :rules="[rules.required]"></v-text-field></v-col>
+                  <v-checkbox v-model="formState.enableTimeShift" label="Enable Time Shift Analysis (+/- 2 hours)"
+                        messages="When enabled, the optimizer will run extra tests on time windows 2 hours before and 2 hours after the specified range."></v-checkbox>
+                  
                 </v-row>
               </v-card-item>
             </v-card>
@@ -117,10 +128,11 @@
             :active="isEditing && formState.id === config.id"
           >
             <template v-slot:append>
-              <!-- NEW ACTION BUTTONS -->
+              <v-switch v-model="config.highPriority" label="High Priority" style="padding-top:20px;"></v-switch>
               <v-btn :icon="mdiPencil" variant="text" size="small" @click="startEdit(config)"></v-btn>
               <v-btn :icon="mdiDelete" variant="text" size="small" color="red-lighten-1" @click="confirmDelete(config)"></v-btn>
-              <v-btn color="success" variant="tonal" @click="runOptimization(config.id)" class="ml-2">Run</v-btn>
+              <v-btn color="success" variant="tonal" @click="runOptimization(config.id, config.highPriority)" class="ml-2">Run</v-btn>
+              
             </template>
           </v-list-item>
         </v-list>
@@ -146,6 +158,7 @@ interface Configuration {
   name: string;
   createdAt: string;
   settings: object;
+  highPriority: boolean;
 }
 
 // --- Component State ---
@@ -169,8 +182,14 @@ const getDefaultFormState = () => ({
     session: null,
     entryCandleHasWick: false,
     setupCandleHasWick: false,
-    timeMin: '',
-    timeMax: '',
+    entryDistanceMax: 0,
+    breakoutDistanceMax: 0,
+    timeMin: '08:00',
+    timeMax: '12:00',
+    candleSize: {
+      min: 1,
+      max: 2
+    }
   },
   rankingWeights: {
     profitFactor: 0.40,
@@ -214,7 +233,7 @@ const showSnackbar = (message: string, color: string = 'success') => {
 const fetchConfigurations = async () => {
   try {
     const response = await api.getConfigurations();
-    savedConfigurations.value = response.data;
+    savedConfigurations.value = response.data.map((c: any) => ({...c, highPriority:false}));
   } catch (error) {
     console.error(error);
     showSnackbar("Could not load saved configurations.", "error");
@@ -349,15 +368,19 @@ const saveConfig = async () => {
   }
 };
 
-const runOptimization = async (configId: number) => {
+const runOptimization = async (configId: number, highPriority: boolean) => {
   showSnackbar(`Queuing optimization job for config ID: ${configId}`, "info");
   try {
-    await api.runOptimization(configId);
+    await api.runOptimization(configId, highPriority);
     showSnackbar("Job successfully queued! The worker will now process it.", "success");
   } catch (error: any) {
     showSnackbar(error.response?.data?.message || "Failed to queue job.", "error");
   }
 };
+
+const rules = {
+    required: value => !!value || 'Field is required',
+  }
 
 // --- Lifecycle Hooks ---
 onMounted(fetchConfigurations);

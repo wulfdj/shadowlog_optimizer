@@ -67,4 +67,32 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+/**
+ * @route   DELETE /api/results/:id
+ * @desc    Delete a specific optimization result run from the history.
+ */
+router.delete("/:id", async (req, res) => {
+    const resultId = parseInt(req.params.id, 10);
+    if (isNaN(resultId)) {
+        return res.status(400).json({ message: "Invalid Result ID." });
+    }
+
+    const resultRepo = AppDataSource.getRepository(OptimizationResult);
+    try {
+        const deleteResult = await resultRepo.delete(resultId);
+
+        if (deleteResult.affected === 0) {
+            return res.status(404).json({ message: "Optimization result not found." });
+        }
+        
+        // Success, no content to return.
+        res.status(204).send();
+
+    } catch (error) {
+        // This could catch errors if other tables have strict foreign key constraints
+        console.error(`Error deleting optimization result ${resultId}:`, error);
+        res.status(500).json({ message: "Failed to delete optimization result." });
+    }
+});
+
 export default router;

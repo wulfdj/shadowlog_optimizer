@@ -1,5 +1,5 @@
 import { Router } from "express";
-import optimizationQueue, { addOptimizationJob } from "../jobs/optimizationQueue";
+import { addOptimizationJob, lowPriorityQueue, highPriorityQueue } from "../jobs/optimizationQueue";
 import { AppDataSource } from "../database/data-source"; // Import DataSource
 import { Configuration } from "../entities/Configuration"; // Import Configuration entity
 
@@ -11,7 +11,9 @@ const router = Router();
  */
 router.get("/active", async (req, res) => {
     try {
-        const activeJobs = await optimizationQueue.getActive();
+        const lowPriorityActiveJobs = await lowPriorityQueue.getActive();
+        const highPriorityActiveJobs = await highPriorityQueue.getActive();
+        const activeJobs = [...lowPriorityActiveJobs, ...highPriorityActiveJobs];
         
         // The job data now contains the name and max combinations, so no extra DB call is needed here.
         const jobsToDisplay = activeJobs.map(job => ({
@@ -41,8 +43,15 @@ router.post("/stop/:jobId", async (req, res) => {
         return res.status(400).json({ message: "Job ID is required." });
     }
 
+    const isHighPriorityJob = (await highPriorityQueue.getActive()).find(job => job.id == jobId)
+
     try {
-        const job = await optimizationQueue.getJob(jobId);
+        let job;
+        if (isHighPriorityJob) {
+            job = await highPriorityQueue.getJob(jobId);
+        } else {
+            job = await lowPriorityQueue.getJob(jobId);
+        }
         if (!job) {
             return res.status(404).json({ message: "Job not found." });
         }
@@ -70,6 +79,8 @@ router.post("/stop/:jobId", async (req, res) => {
  */
 router.post("/:configId", async (req, res) => {
     const configId = parseInt(req.params.configId, 10);
+    const { highPriority } = req.body;
+
     if (isNaN(configId)) {
         return res.status(400).json({ message: "Invalid Configuration ID." });
     }
@@ -88,7 +99,10 @@ router.post("/:configId", async (req, res) => {
             configId: config.id,
             configurationName: config.name,
             maxCombinationsToTest: (config.settings as any)?.maxCombinationsToTest || 100000,
+            highPriority: highPriority
         };
+
+
         
         // Pass the enriched data when adding the job
         addOptimizationJob(jobData);

@@ -31,14 +31,17 @@ export default {
     deleteConfiguration(id: number) {
         return apiClient.delete(`/configurations/${id}`);
     },
-    runOptimization(configId: number) {
-        return apiClient.post(`/optimize/${configId}`);
+    runOptimization(configId: number, highPriority: boolean) {
+        return apiClient.post(`/optimize/${configId}`, { highPriority });
     },
     getResultList() {
         return apiClient.get('/results');
     },
     getResultDetails(resultId: number) {
         return apiClient.get(`/results/${resultId}`);
+    },
+    deleteResult(resultId: number) {
+        return apiClient.delete(`/results/${resultId}`);
     },
     getArchivedResults() {
         return apiClient.get('/archive');

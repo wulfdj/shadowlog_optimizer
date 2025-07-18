@@ -379,7 +379,7 @@ const runOptimization = async (configId: number, highPriority: boolean) => {
 };
 
 const rules = {
-    required: value => !!value || 'Field is required',
+    required: (value: any) => !!value || 'Field is required',
   }
 
 // --- Lifecycle Hooks ---

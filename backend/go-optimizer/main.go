@@ -1091,35 +1091,32 @@ func main() {
 	//if maxS, ok := settings["timeWindowMaxShiftHours"].(float64); ok {
 	//	maxShiftHours = maxS
 	//}
-
+	var timeWindowVariations []map[string]int
 	baseMinStr := ""
 	baseMaxStr := ""
 	if enableTimeWindowOptimization && timeFilterFound {
 		baseMaxStr = predefinedMaxTime
 		baseMinStr = predefinedMinTime
-	}
 
-	baseMinMinutes, err := timeToMinutes(baseMinStr) // Reusing existing timeToMinutes
-	if err != nil {
-		log.Fatalf("FATAL: Invalid baseTimeWindow.min format: %v", err)
-	}
-	baseMaxMinutes, err := timeToMinutes(baseMaxStr) // Reusing existing timeToMinutes
-	if err != nil {
-		log.Fatalf("FATAL: Invalid baseTimeWindow.max format: %v", err)
-	}
+		baseMinMinutes, err := timeToMinutes(baseMinStr) // Reusing existing timeToMinutes
+		if err != nil {
+			log.Fatalf("FATAL: Invalid baseTimeWindow.min format: %v", err)
+		}
+		baseMaxMinutes, err := timeToMinutes(baseMaxStr) // Reusing existing timeToMinutes
+		if err != nil {
+			log.Fatalf("FATAL: Invalid baseTimeWindow.max format: %v", err)
+		}
 
-	var timeWindowVariations []map[string]int
-	if enableTimeWindowOptimization {
 		log.Printf("Time window optimization enabled. Base: %s-%s. Shifting by %d mins from %v to %v hours.",
 			baseMinStr, baseMaxStr, timeWindowShiftStepMinutes, minShiftHours, maxShiftHours)
 		timeWindowVariations = generateTimeWindows(baseMinMinutes, baseMaxMinutes, minShiftHours, maxShiftHours, timeWindowShiftStepMinutes)
 		log.Printf("Generated %d time window variations.", len(timeWindowVariations))
-	} else {
-		log.Println("Time window optimization disabled. Using base time window only.")
-		timeWindowVariations = []map[string]int{
-			{"minMinutes": baseMinMinutes, "maxMinutes": baseMaxMinutes},
-		}
-	}
+	} //else {
+	//	log.Println("Time window optimization disabled. Using base time window only.")
+	//	timeWindowVariations = []map[string]int{
+	//		{"minMinutes": baseMinMinutes, "maxMinutes": baseMaxMinutes},
+	//	}
+	//}
 
 	// --- Step 4: Generate Combinations (with corrected selection logic) ---
 
@@ -1170,18 +1167,22 @@ func main() {
 
 	// --- Augment base combinations with time window variations ---
 	var allFinalCombinations []Combination
-	for _, baseCombo := range baseCombinations {
-		for _, timeWindowConditionMap := range timeWindowVariations {
-			newCombo := make(Combination)
-			for k, v := range baseCombo {
-				newCombo[k] = v
+	if enableTimeWindowOptimization {
+		for _, baseCombo := range baseCombinations {
+			for _, timeWindowConditionMap := range timeWindowVariations {
+				newCombo := make(Combination)
+				for k, v := range baseCombo {
+					newCombo[k] = v
+				}
+				// Add the time window filter using a special key "TimeFilter"
+				newCombo["TimeFilter"] = timeWindowConditionMap
+				allFinalCombinations = append(allFinalCombinations, newCombo)
 			}
-			// Add the time window filter using a special key "TimeFilter"
-			newCombo["TimeFilter"] = timeWindowConditionMap
-			allFinalCombinations = append(allFinalCombinations, newCombo)
 		}
+		log.Printf("Total final combinations after time window augmentation: %d", len(allFinalCombinations))
+	} else {
+		allFinalCombinations = baseCombinations
 	}
-	log.Printf("Total final combinations after time window augmentation: %d", len(allFinalCombinations))
 
 	resultsChan := make(chan Result, 100000)
 	var wg sync.WaitGroup

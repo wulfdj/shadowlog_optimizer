@@ -7,6 +7,7 @@ import configurationRoutes from './routes/configurationRoutes';
 import optimizationRoutes from './routes/optimizationRoutes';
 import resultRoutes from './routes/resultRoutes';
 import archiveRoutes from './routes/archiveRoutes';
+import tagRoutes from './routes/tagRoutes';
 
 const app = express();
 const port = 3000;
@@ -21,6 +22,7 @@ app.use('/api/configurations', configurationRoutes);
 app.use('/api/optimize', optimizationRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/archive', archiveRoutes); // Add this
+app.use('/api/tags', tagRoutes);
 
 // A simple test route
 app.get('/', (req, res) => {

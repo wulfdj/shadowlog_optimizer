@@ -29,6 +29,20 @@
           <v-card-subtitle>Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  Strategy: <v-chip size="small" color="blue-grey" class="ml-1">{{ item.strategyName }}</v-chip></v-card-subtitle>
           
           <v-card-text>
+            <div class="mb-4">
+              <v-chip
+                  v-for="tag in item.tags"
+                  :key="tag.id"
+                  :color="tag.color"
+                  size="small"
+                  class="mr-2"
+                  label
+              >
+                  {{ tag.name }}
+              </v-chip>
+              <span v-if="!item.tags || item.tags.length === 0" class="text-caption">No tags assigned.</span>
+          </div>
+
             <p v-if="item.notes" class="font-italic mb-4">"{{ item.notes }}"</p>
             
             <!-- Key Performance Indicators -->
@@ -44,6 +58,10 @@
               <div>
                 <div class="text-caption">Profit Factor</div>
                 <div class="text-h6">{{ getMetric(item, 'profitFactor') || 'N/A' }}</div>
+              </div>
+              <div>
+                <div class="text-caption">Net Profit</div>
+                <div class="text-h6">{{ getMetric(item, 'netProfit') || 'N/A' }}</div>
               </div>
               <div>
                 <div class="text-caption">Trades</div>
@@ -94,6 +112,13 @@
           </v-card-text>
 
           <v-card-actions>
+             <v-btn
+                :icon="mdiTagMultipleOutline"
+                variant="text"
+                color="grey"
+                @click="openTagDialog(item)"
+                title="Edit tags"
+            ></v-btn>
             <v-btn
               :icon="mdiDeleteOutline"
               variant="text"
@@ -133,15 +158,113 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+        <v-dialog v-model="tagDialog.show" persistent max-width="600px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Manage Tags for: {{ tagDialog.editingItem?.configuration.name }}</span>
+        </v-card-title>
+        <v-card-text>
+          <p>Select existing tags:</p>
+          <v-chip-group v-model="tagDialog.selectedTagIds" column multiple>
+            <v-chip
+              v-for="tag in allTags"
+              :key="tag.id"
+              :value="tag.id"
+              filter
+              variant="outlined"
+            >
+              {{ tag.name }}
+            </v-chip>
+          </v-chip-group>
+
+          <v-divider class="my-4"></v-divider>
+          
+          <p>Or create a new tag:</p>
+          <v-row dense align="center">
+            <v-col><v-text-field v-model="tagDialog.newTagName" label="New Tag Name" hide-details></v-text-field></v-col>
+            <v-col><v-text-field v-model="tagDialog.newTagColor" label="Color (e.g., blue, #FF5733)" hide-details></v-text-field></v-col>
+            <v-col cols="auto"><v-btn color="secondary" @click="createNewTag" :disabled="!tagDialog.newTagName || !tagDialog.newTagColor">Create</v-btn></v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="tagDialog.show = false">Cancel</v-btn>
+          <v-btn color="primary" text @click="saveTags" :loading="tagDialog.isSaving">Save Changes</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { mdiStar, mdiDeleteOutline } from '@mdi/js';
+import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline } from '@mdi/js';
 import { ref, onMounted, reactive } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useRouter } from 'vue-router';
+
+const allTags = ref<any[]>([]);
+const tagDialog = reactive({
+    show: false,
+    isSaving: false,
+    editingItem: null as any | null,
+    selectedTagIds: [] as number[],
+    newTagName: '',
+    newTagColor: 'blue-grey',
+});
+
+// --- Add new methods ---
+async function fetchTags() {
+    try {
+        const response = await api.getTags();
+        allTags.value = response.data;
+    } catch (error) {
+        console.error("Failed to fetch tags:", error);
+    }
+}
+
+function openTagDialog(item: any) {
+    tagDialog.editingItem = item;
+    // Pre-select the tags that are already assigned to this item
+    tagDialog.selectedTagIds = item.tags?.map((t: any) => t.id) || [];
+    tagDialog.show = true;
+}
+
+async function createNewTag() {
+    try {
+        const newTag = await api.createTag({
+            name: tagDialog.newTagName,
+            color: tagDialog.newTagColor,
+        });
+        allTags.value.push(newTag.data); // Add to our local list
+        tagDialog.selectedTagIds.push(newTag.data.id); // And auto-select it
+        tagDialog.newTagName = ''; // Clear form
+    } catch (error) {
+        showSnackbar("Failed to create tag. Does it already exist?", "error");
+    }
+}
+
+async function saveTags() {
+    if (!tagDialog.editingItem) return;
+    tagDialog.isSaving = true;
+    try {
+        const updatedArchive = await api.updateArchiveTags(
+            tagDialog.editingItem.id,
+            tagDialog.selectedTagIds
+        );
+        // Find the item in our main list and update its tags for instant UI feedback
+        const index = archivedResults.value.findIndex(item => item.id === tagDialog.editingItem.id);
+        if (index !== -1) {
+            archivedResults.value[index].tags = updatedArchive.data.tags;
+        }
+        showSnackbar("Tags updated successfully!", "success");
+        tagDialog.show = false;
+    } catch (error) {
+        showSnackbar("Failed to update tags.", "error");
+    } finally {
+        tagDialog.isSaving = false;
+    }
+}
 
 interface ArchivedItem {
   id: number;
@@ -152,6 +275,7 @@ interface ArchivedItem {
   configurationData: any;
   strategyName?: string;
   configuration: any;
+  tags: any[];
 }
 
 const importDialog = reactive({
@@ -270,6 +394,7 @@ function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = f
     if (metricKey === 'totalTradesThisStrategy') return item.resultData.overallTradeCount;
     if (metricKey === 'profitFactor') return item.resultData.profitFactor;
     if (metricKey === 'winRate' && asPercent) return `${(item.resultData.winRate * 100).toFixed(1)}%`
+    if (metricKey === 'netProfit') return item.resultData.netProfit;
   }
 
   let metric: any;
@@ -370,7 +495,11 @@ const handleImport = async () => {
 };
 
 
-onMounted(fetchArchived);
+// Call fetchTags in onMounted
+onMounted(() => {
+    fetchArchived();
+    fetchTags();
+});
 </script>
 
 <style scoped>

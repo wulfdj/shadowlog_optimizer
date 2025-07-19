@@ -62,5 +62,14 @@ export default {
     },
      stopJob(jobId: string | number) {
         return apiClient.post(`/optimize/stop/${jobId}`);
-    }
+    },
+    getTags() {
+        return apiClient.get('/tags');
+    },
+    createTag(payload: { name: string, color: string }) {
+        return apiClient.post('/tags', payload);
+    },
+    updateArchiveTags(archiveId: number, tagIds: number[]) {
+        return apiClient.put(`/archive/${archiveId}/tags`, { tagIds });
+    },
 };

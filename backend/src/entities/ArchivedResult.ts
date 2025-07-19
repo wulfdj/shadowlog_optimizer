@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, ManyToMany, JoinTable } from "typeorm";
 import { Configuration } from "./Configuration";
+import { Tag } from "./Tag";
 
 @Entity()
 export class ArchivedResult {
@@ -25,4 +26,8 @@ export class ArchivedResult {
 
     @CreateDateColumn()
     archivedAt!: Date;
+
+    @ManyToMany(() => Tag, { eager: true, cascade: true })
+    @JoinTable() // This creates the join table (e.g., archived_result_tags_tag)
+    tags!: Tag[];
 }

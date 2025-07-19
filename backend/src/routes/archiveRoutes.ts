@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AppDataSource } from "../database/data-source";
 import { ArchivedResult } from "../entities/ArchivedResult";
 import { Configuration } from "../entities/Configuration";
+import { Tag } from "../entities/Tag";
 import { FindOneOptions } from "typeorm";
 
 const router = Router();
@@ -148,5 +149,41 @@ router.post("/import", async (req, res) => {
     });
 });
 
+
+/**
+ * @route   PUT /api/archive/:id/tags
+ * @desc    Update the tags for a specific archived result.
+ */
+router.put("/:id/tags", async (req, res) => {
+    const archiveId = parseInt(req.params.id, 10);
+    const tagIds = req.body.tagIds as number[]; // Expect an array of Tag IDs
+
+    if (isNaN(archiveId) || !Array.isArray(tagIds)) {
+        return res.status(400).json({ message: "Invalid request body." });
+    }
+
+    const archiveRepo = AppDataSource.getRepository(ArchivedResult);
+    const tagRepo = AppDataSource.getRepository(Tag);
+
+    try {
+        const archiveToUpdate = await archiveRepo.findOneBy({ id: archiveId });
+        if (!archiveToUpdate) {
+            return res.status(404).json({ message: "Archived result not found." });
+        }
+        
+        // Find the full Tag entities for the given IDs
+        const tags = await tagRepo.findByIds(tagIds);
+        
+        // Assign the new set of tags to the relationship
+        archiveToUpdate.tags = tags;
+        
+        await archiveRepo.save(archiveToUpdate);
+        res.json(archiveToUpdate);
+
+    } catch (error) {
+        console.error("Error updating tags for archive:", error);
+        res.status(500).json({ message: "Failed to update tags." });
+    }
+});
 
 export default router;

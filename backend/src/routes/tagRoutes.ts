@@ -37,4 +37,37 @@ router.delete("/:id", async (req, res) => {
     } catch (error) { res.status(500).json({ message: "Error deleting tag" }); }
 });
 
+/**
+ * @route   PUT /api/tags/:id
+ * @desc    Update an existing tag's name and/or color.
+ */
+router.put("/:id", async (req, res) => {
+    const tagId = parseInt(req.params.id, 10);
+    const { name, color } = req.body;
+
+    if (isNaN(tagId) || (!name && !color)) {
+        return res.status(400).json({ message: "Invalid request. A name or color is required." });
+    }
+
+    const tagRepo = AppDataSource.getRepository(Tag);
+    try {
+        const tagToUpdate = await tagRepo.findOneBy({ id: tagId });
+        if (!tagToUpdate) {
+            return res.status(404).json({ message: "Tag not found." });
+        }
+
+        // Update properties if they were provided
+        if (name) tagToUpdate.name = name;
+        if (color) tagToUpdate.color = color;
+
+        await tagRepo.save(tagToUpdate);
+        res.json(tagToUpdate);
+
+    } catch (error) {
+        // This will catch unique constraint violations if the new name already exists
+        console.error(`Error updating tag ${tagId}:`, error);
+        res.status(500).json({ message: "Failed to update tag. The name may already be in use." });
+    }
+});
+
 export default router;

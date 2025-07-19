@@ -158,22 +158,26 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-        <v-dialog v-model="tagDialog.show" persistent max-width="600px">
+        <v-dialog v-model="tagDialog.show" persistent max-width="700px">
       <v-card>
         <v-card-title>
           <span class="headline">Manage Tags for: {{ tagDialog.editingItem?.configuration.name }}</span>
         </v-card-title>
         <v-card-text>
-          <p>Select existing tags:</p>
+          <p>Select existing tags to assign. Click the pencil to edit a tag for all items.</p>
           <v-chip-group v-model="tagDialog.selectedTagIds" column multiple>
             <v-chip
               v-for="tag in allTags"
               :key="tag.id"
               :value="tag.id"
+              :color="tag.color"
               filter
-              variant="outlined"
+              variant="flat"
+              closable
+              @click:close="confirmDeleteTag(tag)"
             >
               {{ tag.name }}
+              <v-icon end :icon="mdiPencil" size="x-small" @click.stop.prevent="openEditTagDialog(tag)"></v-icon>
             </v-chip>
           </v-chip-group>
 
@@ -181,23 +185,47 @@
           
           <p>Or create a new tag:</p>
           <v-row dense align="center">
-            <v-col><v-text-field v-model="tagDialog.newTagName" label="New Tag Name" hide-details></v-text-field></v-col>
-            <v-col><v-text-field v-model="tagDialog.newTagColor" label="Color (e.g., blue, #FF5733)" hide-details></v-text-field></v-col>
-            <v-col cols="auto"><v-btn color="secondary" @click="createNewTag" :disabled="!tagDialog.newTagName || !tagDialog.newTagColor">Create</v-btn></v-col>
+            <v-col cols="12" sm="5">
+              <v-text-field v-model="tagDialog.newTagName" label="New Tag Name" hide-details></v-text-field>
+            </v-col>
+            <v-col cols="12" sm="5">
+              <ColorPalettePicker v-model="tagDialog.newTagColor" />
+            </v-col>
+            <v-col cols="12" sm="2">
+              <v-btn color="secondary" @click="createNewTag" :disabled="!tagDialog.newTagName || !tagDialog.newTagColor" block>Create</v-btn>
+            </v-col>
           </v-row>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="tagDialog.show = false">Cancel</v-btn>
-          <v-btn color="primary" text @click="saveTags" :loading="tagDialog.isSaving">Save Changes</v-btn>
+          <v-btn color="primary" text @click="saveTags" :loading="tagDialog.isSaving">Save Assignments</v-btn>
         </v-card-actions>
       </v-card>
+    </v-dialog>
+
+    <!-- EDIT INDIVIDUAL TAG DIALOG (Nested) -->
+     <v-dialog v-model="editTagDialog.show" persistent width="400">
+        <v-card v-if="editTagDialog.editingTag">
+            <v-card-title>Edit Tag</v-card-title>
+            <<v-card-text>
+            <v-text-field v-model="editTagDialog.name" label="Tag Name" class="mb-2"></v-text-field>
+            <p class="text-caption">Tag Color</p>
+            <ColorPalettePicker v-model="editTagDialog.color" />
+            </v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn text @click="editTagDialog.show = false">Cancel</v-btn>
+                <v-btn color="primary" text @click="saveTagEdit" :loading="editTagDialog.isSaving">Update Tag</v-btn>
+            </v-card-actions>
+        </v-card>
     </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline } from '@mdi/js';
+import ColorPalettePicker from '@/components/ColorPalettePicker.vue'
+import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline, mdiPencil } from '@mdi/js';
 import { ref, onMounted, reactive } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
@@ -211,6 +239,14 @@ const tagDialog = reactive({
     selectedTagIds: [] as number[],
     newTagName: '',
     newTagColor: 'blue-grey',
+});
+
+const editTagDialog = reactive({
+    show: false,
+    isSaving: false,
+    editingTag: null as any | null,
+    name: '',
+    color: '',
 });
 
 // --- Add new methods ---
@@ -265,6 +301,53 @@ async function saveTags() {
         tagDialog.isSaving = false;
     }
 }
+
+function openEditTagDialog(tag: any) {
+    editTagDialog.editingTag = tag;
+    editTagDialog.name = tag.name;
+    editTagDialog.color = tag.color;
+    editTagDialog.show = true;
+}
+
+// NEW: Saves the changes to an individual tag
+async function saveTagEdit() {
+    if (!editTagDialog.editingTag) return;
+    editTagDialog.isSaving = true;
+    try {
+        const updatedTag = await api.updateTag(editTagDialog.editingTag.id, {
+            name: editTagDialog.name,
+            color: editTagDialog.color,
+        });
+        // Find and update the tag in our local 'allTags' array for instant UI feedback
+        const index = allTags.value.findIndex(t => t.id === updatedTag.data.id);
+        if (index !== -1) {
+            allTags.value[index] = updatedTag.data;
+        }
+        showSnackbar("Tag updated successfully!", "success");
+        editTagDialog.show = false;
+    } catch (error) {
+        showSnackbar("Failed to update tag.", "error");
+    } finally {
+        editTagDialog.isSaving = false;
+    }
+}
+
+// NEW: Deletes an individual tag
+async function confirmDeleteTag(tagToDelete: any) {
+    if (confirm(`Are you sure you want to delete the tag "${tagToDelete.name}" everywhere? This cannot be undone.`)) {
+        try {
+            await api.deleteTag(tagToDelete.id);
+            // Remove the tag from our local list
+            allTags.value = allTags.value.filter(t => t.id !== tagToDelete.id);
+            // Also remove it from any current selections
+            tagDialog.selectedTagIds = tagDialog.selectedTagIds.filter(id => id !== tagToDelete.id);
+            showSnackbar("Tag deleted successfully.", "success");
+        } catch (error) {
+            showSnackbar("Failed to delete tag.", "error");
+        }
+    }
+}
+
 
 interface ArchivedItem {
   id: number;

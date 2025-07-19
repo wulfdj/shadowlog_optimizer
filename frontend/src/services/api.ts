@@ -72,4 +72,10 @@ export default {
     updateArchiveTags(archiveId: number, tagIds: number[]) {
         return apiClient.put(`/archive/${archiveId}/tags`, { tagIds });
     },
+     updateTag(id: number, payload: { name?: string, color?: string }) {
+        return apiClient.put(`/tags/${id}`, payload);
+    },
+    deleteTag(id: number) {
+        return apiClient.delete(`/tags/${id}`);
+    },
 };

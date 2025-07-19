@@ -24,11 +24,6 @@
           </v-list>
         </v-menu>
 
-         <v-btn-toggle v-model="viewMode" variant="outlined" divided class="ml-4">
-          <v-btn value="grid"><v-icon :icon="mdiViewGrid"></v-icon></v-btn>
-          <v-btn value="list"><v-icon :icon="mdiViewList"></v-icon></v-btn>
-        </v-btn-toggle>
-
       <v-col class="text-right">
         <v-btn color="secondary" @click="importDialog.show = true">
           Import from CSV
@@ -44,18 +39,116 @@
 
     <!-- Detailed Strategy Cards -->
     <v-row v-else>
-      <v-col
-        v-for="item in sortedResults"
-        :key="item.id"
-        :cols="viewMode === 'grid' ? 12 : 12"
-        :md="viewMode === 'grid' ? 6 : 12"
-      >
-        <ArchivedStrategyCard
-          :item="item"
-          @edit-tags="openTagDialog"
-          @delete-item="confirmDelete"
-          @apply-filter="applyAndGo"
-        />
+      <v-col v-for="item in sortedResults" :key="item.id" cols="12" md="6">
+        <v-card class="fill-height">
+          <v-card-title class="d-flex align-center">
+            <v-icon color="amber" class="mr-2" :icon="mdiStar"></v-icon>
+            {{ item.configuration.name }}
+          </v-card-title>
+          <v-card-subtitle>Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  Strategy: <v-chip size="small" color="blue-grey" class="ml-1">{{ item.strategyName }}</v-chip></v-card-subtitle>
+          
+          <v-card-text>
+            <div class="mb-4">
+              <v-chip
+                  v-for="tag in item.tags"
+                  :key="tag.id"
+                  :color="tag.color"
+                  size="small"
+                  class="mr-2"
+                  label
+              >
+                  {{ tag.name }}
+              </v-chip>
+              <span v-if="!item.tags || item.tags.length === 0" class="text-caption">No tags assigned.</span>
+          </div>
+
+            <p v-if="item.notes" class="font-italic mb-4">"{{ item.notes }}"</p>
+            
+            <!-- Key Performance Indicators -->
+            <div class="kpi-grid mb-4">
+              <div>
+                <div class="text-caption">Strategy Score</div>
+                <div class="text-h6">{{ getMetric(item, 'score') || 'N/A' }}</div>
+              </div>
+              <div>
+                <div class="text-caption">Win Rate</div>
+                <div class="text-h6">{{ getMetric(item, 'winRate', true) || 'N/A' }}</div>
+              </div>
+              <div>
+                <div class="text-caption">Profit Factor</div>
+                <div class="text-h6">{{ getMetric(item, 'profitFactor') || 'N/A' }}</div>
+              </div>
+              <div>
+                <div class="text-caption">Net Profit</div>
+                <div class="text-h6">{{ getMetric(item, 'netProfit') || 'N/A' }}</div>
+              </div>
+              <div>
+                <div class="text-caption">Trades</div>
+                <div class="text-h6">{{ getMetric(item, 'totalTradesThisStrategy') || 'N/A' }}</div>
+              </div>
+            </div>
+
+            <v-divider></v-divider>
+            <div class="mt-2">
+              <strong>Time Settings:</strong> {{ getPredefinedTime(item.configuration) || 'Any' }} <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> {{ getTimeRangeFromCombination(item) }}</span>
+              <br/>
+              <strong>Setup:</strong> {{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}
+            </div>
+            <!-- Configuration Details -->
+            <v-expansion-panels>
+              <v-expansion-panel>
+                <v-expansion-panel-title>Configuration Used</v-expansion-panel-title>
+                <v-expansion-panel-text>
+            <div class="mt-4">
+              <v-row dense>
+                <v-col cols="6" sm="6">
+                  <strong>Timeframe:</strong> {{ item.configuration.settings.dataSheetName }}
+                </v-col>
+                 <v-col cols="6" sm="6">
+                  <strong>Min Trades:</strong> {{ item.configuration.settings.minTradeCount }}
+                </v-col>
+                <v-col cols="6" sm="6">
+                  <strong>Min SL Ratio:</strong> {{ item.configuration.settings.minSLToTPRatio }}
+                </v-col>
+                <v-col cols="6" sm="6">
+                  <strong>Max TP Ratio:</strong> {{ item.configuration.settings.maxTPToSLRatio }}
+                </v-col>
+              </v-row>
+              
+              <div class="mt-2">
+                <strong>Predefined Filters:</strong>
+                <pre><code>{{ JSON.stringify(item.configuration.settings.predefinedFilters, null, 2) }}</code></pre>
+              </div>
+
+              <div class="mt-2">
+                <strong>Winning Combination:</strong>
+                <pre><code>{{ JSON.stringify(item.resultData.combination, null, 2) }}</code></pre>
+              </div>
+            </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </v-card-text>
+
+          <v-card-actions>
+             <v-btn
+                :icon="mdiTagMultipleOutline"
+                variant="text"
+                color="grey"
+                @click="openTagDialog(item)"
+                title="Edit tags"
+            ></v-btn>
+            <v-btn
+              :icon="mdiDeleteOutline"
+              variant="text"
+              color="grey"
+              @click="confirmDelete(item)"
+              title="Delete this archived strategy"
+            ></v-btn>
+            <v-spacer></v-spacer>
+            <v-btn color="deep-purple-lighten-1" @click="applyAndGo(item)">Apply & View Trades</v-btn>
+          </v-card-actions>
+        </v-card>
       </v-col>
     </v-row>
      <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3000">
@@ -151,16 +244,11 @@
 
 <script setup lang="ts">
 import ColorPalettePicker from '@/components/ColorPalettePicker.vue'
-import ArchivedStrategyCard from '@/components/ArchivedStrategyCard.vue';
-import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline, mdiPencil, mdiViewGrid, mdiViewList } from '@mdi/js';
-import { ref, onMounted, reactive, computed, watch } from 'vue';
+import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline, mdiPencil } from '@mdi/js';
+import { ref, onMounted, reactive, computed } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useRouter } from 'vue-router';
-const viewMode = ref<'grid' | 'list'>('grid'); // Default to grid
-watch(viewMode, (newValue) => {
-    localStorage.setItem('archiveViewMode', newValue);
-});
 const allArchivedResults = ref<any[]>([]); 
 const sortOptions = [
     { key: 'date', title: 'Date Archived' },
@@ -205,15 +293,6 @@ const sortedResults = computed(() => {
     }
     return results;
 });
-async function fetchArchived() {
-    try {
-        const response = await api.getArchivedResults();
-        allArchivedResults.value = response.data;
-        console.log("Archived result: ", archivedResults.value);
-    } catch (error) {
-        console.error("Failed to fetch archived results:", error);
-    }
-}
 const setActiveSort = (option: { key: string, title: string }) => {
     activeSort.value = option;
 };
@@ -435,6 +514,65 @@ function getPredefinedFilter(config: any, filterName: 'Setup' | 'Session'): stri
     return found ? found.condition : null;
 }
 
+function getPredefinedTime(config: any): string | null {
+    const filters = config.settings?.predefinedFilters || [];
+    const found = filters.find((f: any) => f.type === 'timeRange');
+    if (!found) return null;
+
+    const { minMinutes, maxMinutes } = found.condition;
+    if (minMinutes && maxMinutes) return `${minMinutes} - ${maxMinutes}`;
+    if (minMinutes) return `After ${minMinutes}`;
+    if (maxMinutes) return `Before ${maxMinutes}`;
+    return null;
+}
+
+function getTimeRangeFromCombination(item: ArchivedItem): string | null {
+  //console.log("getTimeRangeFromCombination: ", item);
+  const combination = item.resultData.combination;
+  if (!combination.TimeWindow) return null;
+  return combination.TimeWindow;
+}
+
+function getMetric(item: ArchivedItem, metricKey: string, asPercent: boolean = false): string | number | undefined {
+  const strategyName = item.strategyName;
+  if (!strategyName) return 'N/A'; // No strategy context
+
+  if (!item.resultData.metrics) {
+    if (metricKey === 'score' ) return item.resultData.overallScore;
+    if (metricKey === 'totalTradesThisStrategy') return item.resultData.overallTradeCount;
+    if (metricKey === 'profitFactor') return item.resultData.profitFactor;
+    if (metricKey === 'winRate' && asPercent) return `${(item.resultData.winRate * 100).toFixed(1)}%`
+    if (metricKey === 'netProfit') return item.resultData.netProfit;
+  }
+
+  let metric: any;
+  if (metricKey === 'score') {
+    metric = item.resultData?.strategyScores?.[strategyName];
+  } else {
+    metric = item.resultData?.metrics?.[strategyName]?.[metricKey];
+  }
+
+  //console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
+  if (metric === undefined || metric === null) return 'N/A';
+  if (metric === Infinity) return '∞';
+  if (typeof metric !== 'number') return metric;
+
+  if (typeof metric === 'number' && metric % 1 === 0) return metric;
+
+  if (asPercent) return `${(metric * 100).toFixed(1)}%`;
+  return Number(metric).toFixed(2);
+}
+
+async function fetchArchived() {
+    try {
+        const response = await api.getArchivedResults();
+        allArchivedResults.value = response.data;
+        console.log("Archived result: ", archivedResults.value);
+    } catch (error) {
+        console.error("Failed to fetch archived results:", error);
+    }
+}
+
 async function confirmDelete(itemToDelete: ArchivedItem) {
     if (confirm(`Are you sure you want to permanently delete the strategy "${itemToDelete.name}"?`)) {
         try {
@@ -507,10 +645,6 @@ const handleImport = async () => {
 
 // Call fetchTags in onMounted
 onMounted(() => {
-  const savedMode = localStorage.getItem('archiveViewMode');
-    if (savedMode === 'list' || savedMode === 'grid') {
-        viewMode.value = savedMode;
-    }
     fetchArchived();
     fetchTags();
 });

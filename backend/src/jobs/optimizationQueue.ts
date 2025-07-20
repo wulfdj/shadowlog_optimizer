@@ -17,7 +17,7 @@ export const lowPriorityQueue = new Queue('low-priority-jobs', {
 // The function now accepts the full job data object
 export const addOptimizationJob = (jobData: object) => {
     // The second argument to .add() is the data payload for the job
-    highPriorityQueue.add('run-go-optimization-normal', jobData);
+    lowPriorityQueue.add('run-go-optimization-normal', jobData);
     console.log(`Added optimization job with data:`, jobData);
 };
 

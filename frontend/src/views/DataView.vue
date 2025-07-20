@@ -29,7 +29,7 @@
         <v-card-text>
           <p>Select the timeframe this CSV file belongs to. This will overwrite any existing data for that timeframe.
           </p>
-          <v-select v-model="importDialog.timeframe" :items="['1M', '5M', '15M', '30M', '1H', '4H', 'D1']"
+          <v-select v-model="importDialog.timeframe" :items="['5M', '10M', '15M', '30M', '1H', '4H', 'D1']"
             label="Select Timeframe" class="mt-4"></v-select>
           <v-file-input v-model="importDialog.file" label="Select CSV File" accept=".csv" show-size
             :multiple="false"></v-file-input>

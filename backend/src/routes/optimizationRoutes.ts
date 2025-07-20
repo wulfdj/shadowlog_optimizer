@@ -2,7 +2,10 @@ import { Router } from "express";
 import { addOptimizationJob, lowPriorityQueue, highPriorityQueue } from "../jobs/optimizationQueue";
 import { AppDataSource } from "../database/data-source"; // Import DataSource
 import { Configuration } from "../entities/Configuration"; // Import Configuration entity
+import { redisConnection } from "../jobs/redisConnection";
+import IORedis from "ioredis";
 
+const redisClient = new IORedis(redisConnection);
 const router = Router();
 
 /**
@@ -11,20 +14,40 @@ const router = Router();
  */
 router.get("/active", async (req, res) => {
     try {
-        const lowPriorityActiveJobs = await lowPriorityQueue.getActive();
-        const highPriorityActiveJobs = await highPriorityQueue.getActive();
-        const activeJobs = [...lowPriorityActiveJobs, ...highPriorityActiveJobs];
+        const activeJobs = await lowPriorityQueue.getActive();
+        //const highPriorityActiveJobs = await highPriorityQueue.getActive();
+        //const activeJobs = [...lowPriorityActiveJobs, ...highPriorityActiveJobs];
         
         // The job data now contains the name and max combinations, so no extra DB call is needed here.
-        const jobsToDisplay = activeJobs.map(job => ({
-            id: job.id,
-            progress: job.progress,
-            startedAt: job.timestamp, // The timestamp when the job was added to the queue
-            // Retrieve the enriched data we added when the job was created
-            configId: job.data.configId,
-            name: job.data.configurationName,
-            totalCombinations: job.data.totalCombinations
-        }));
+        // const jobsToDisplay = activeJobs.map(job => ({
+        //     id: job.id,
+        //     progress: job.progress,
+        //     startedAt: job.timestamp, // The timestamp when the job was added to the queue
+        //     // Retrieve the enriched data we added when the job was created
+        //     configId: job.data.configId,
+        //     name: job.data.configurationName,
+        //     totalCombinations: job.data.totalCombinations
+        // }));
+
+        const jobsToDisplay = await Promise.all(
+            activeJobs.map(async (job) => {
+                // --- CORE CHANGE: Fetch progress from our custom Redis key ---
+                const progressKey = `progress-for-job:${job.id!}`;
+                const progress = await redisClient.get(progressKey);
+                
+                return {
+                    id: job.id,
+                    // Parse the progress, defaulting to the job's own progress if not found
+                    progress: progress ? parseInt(progress, 10) : job.progress,
+                    startedAt: job.timestamp,
+                    configId: job.data.configId,
+                    name: job.data.configurationName,
+                    totalCombinations: job.data.totalCombinations,
+                    highPriority: job.data.highPriority,
+                };
+            })
+        );
+
 
         res.json(jobsToDisplay);
     } catch (error) {

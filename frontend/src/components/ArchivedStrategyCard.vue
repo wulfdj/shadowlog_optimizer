@@ -135,8 +135,10 @@ function convertMinutesToTime(totalMinutes: number): string {
 function getTimeRangeFromCombination(item: any): string | null {
   //console.log("getTimeRangeFromCombination: ", item);
   const combination = item.resultData.combination;
-  if (combination.TimeWindow || combination.TimeFilter) {
+  if (combination.TimeFilter) {
     return `${convertMinutesToTime(combination.TimeFilter.minMinutes)} - ${convertMinutesToTime(combination.TimeFilter.maxMinutes)}`;
+  } else if (combination.TimeWindow) {
+    return combination.TimeWindow;
   } else {
     return null;
   }

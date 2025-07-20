@@ -72,6 +72,12 @@ var SelectableCombinations = []map[string]interface{}{
 			map[string]interface{}{"columnHeader": "D1_Candle_Open", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
 		},
 	},
+	{
+		"name": "S2 Pullback Distance Max",
+		"criterias": []interface{}{
+			map[string]interface{}{"columnHeader": "S2 Previous Support Distance|S2 Previous Resistance Distance", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 7.5, 10, 12.5, 15, 20, 25, nil}, "mode": "MAX"},
+		},
+	},
 }
 
 var TradeStrategies = []map[string]interface{}{

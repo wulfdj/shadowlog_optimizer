@@ -43,7 +43,7 @@ func (db *DB) FetchConfiguration(configID int) (optimizer.Configuration, error) 
 func (db *DB) FetchAllTrades(timeframe string) ([]optimizer.Trade, error) {
 	query := `
 	SELECT 
-		"Time", "Setup", "Entered", "Canceled_After_Candles", "Breakout_Candle_Count", "Candle_Size",
+		"Time", "Setup", "Direction", "Entered", "Canceled_After_Candles", "Breakout_Candle_Count", "Candle_Size",
 		"Breakout_Distance", "Entry_Distance", "Entry_Candle_Has_Wick", "Closed_In_LTA", "TP_1RR_PW_WIN",
 		"TP_1RR_STR_WIN", "TP_1RR_PW_PIPS", "TP_1RR_STR_PIPS", "SL_PW_PIPS", "SL_STR_PIPS",
 		"LTA_Range_Breakout", "Nearest_Range_Breakout", "Static_Range_Breakout", "Current_Range_Breakout",
@@ -66,7 +66,7 @@ func (db *DB) FetchAllTrades(timeframe string) ([]optimizer.Trade, error) {
 		var t optimizer.Trade
 		// The Scan must match the query order exactly.
 		err := rows.Scan(
-			&t.Time, &t.Setup, &t.Entered, &t.Canceled_After_Candles, &t.Breakout_Candle_Count, &t.Candle_Size,
+			&t.Time, &t.Setup, &t.Direction, &t.Entered, &t.Canceled_After_Candles, &t.Breakout_Candle_Count, &t.Candle_Size,
 			&t.Breakout_Distance, &t.Entry_Distance, &t.Entry_Candle_Has_Wick, &t.Closed_In_LTA, &t.TP_1RR_PW_WIN,
 			&t.TP_1RR_STR_WIN, &t.TP_1RR_PW_PIPS, &t.TP_1RR_STR_PIPS, &t.SL_PW_PIPS, &t.SL_STR_PIPS,
 			&t.LTA_Range_Breakout, &t.Nearest_Range_Breakout, &t.Static_Range_Breakout, &t.Current_Range_Breakout,

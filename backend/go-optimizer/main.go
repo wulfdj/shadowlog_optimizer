@@ -58,45 +58,58 @@ func main() {
 	}
 
 	enabledCriteria := optimizer.BuildEnabledCriteria(config.Settings)
-	baseCombinations := optimizer.GenerateCombinations(enabledCriteria)
-	totalJobs := len(baseCombinations)
-	if len(timeWindows) > 0 {
-		totalJobs *= len(timeWindows)
-	}
-	debugLog.Printf("Generated %d base combinations. Total jobs to process: %d", len(baseCombinations), totalJobs)
+	debugLog.Printf("Found %d enabled criteria. Starting streaming generation...", len(enabledCriteria))
+	//baseCombinations := optimizer.GenerateCombinations(enabledCriteria)
+	//combinationsJSON, _ := json.Marshal(baseCombinations)
+	//log.Println(string(combinationsJSON))
+	//totalJobs := len(baseCombinations)
+	//if len(timeWindows) > 0 {
+	//	totalJobs *= len(timeWindows)
+	//}
+	//debugLog.Printf("Generated %d base combinations. Total jobs to process: %d", len(baseCombinations), totalJobs)
 
 	// --- 4. Setup Workers, Channels, and Reporting ---
 	var processedCounter uint64
-	reporter, err := reporting.NewProgressReporter(redisURL, jobID, totalJobs, &processedCounter)
+	reporter, err := reporting.NewProgressReporter(redisURL, jobID, 0, &processedCounter)
 	if err != nil {
 		debugLog.Fatalf("Failed to start progress reporter: %v", err)
 	}
 	defer reporter.Stop()
 
+	baseComboChan := make(chan optimizer.Combination, 1000)
 	comboChan := make(chan optimizer.Combination, 5000)
 	resultsChan := make(chan optimizer.Result, 1000)
-	var wg sync.WaitGroup
+
+	var processWg, genWg sync.WaitGroup // Use two separate WaitGroups
 
 	inputData := &optimizer.InputData{Config: config, Trades: finalTrades}
 
 	for w := 1; w <= numWorkers; w++ {
-		wg.Add(1)
-		go optimizer.CombinationWorker(w, comboChan, resultsChan, &wg, inputData, &processedCounter)
+		processWg.Add(1)
+		go optimizer.CombinationWorker(w, comboChan, resultsChan, &processWg, inputData, &processedCounter)
 	}
 
 	// --- 5. Start Generation and Orchestrate Pipeline ---
-	var genWg sync.WaitGroup
-	numGenerators := determineGeneratorCount(len(baseCombinations))
+
+	numGenerators := determineGeneratorCount(len(enabledCriteria))
 	for i := 0; i < numGenerators; i++ {
-		start, end := calculateChunk(i, numGenerators, len(baseCombinations))
+		//start, end := calculateChunk(i, numGenerators, len(baseCombinations))
 		genWg.Add(1)
-		go optimizer.GeneratorWorker(&genWg, baseCombinations[start:end], timeWindows, comboChan, len(timeWindows) > 0)
+		go optimizer.GeneratorWorker(&genWg, baseComboChan, timeWindows, comboChan, len(timeWindows) > 0)
 	}
 
 	// Goroutine to close the jobs channel once all generators are done
 	go func() {
 		genWg.Wait()
 		close(comboChan)
+	}()
+
+	// Launch the master generator that feeds the whole pipeline.
+	// It will close baseComboChan when it's done, signaling the generator workers to stop.
+	go func() {
+		defer close(baseComboChan)
+		initialCombo := make(optimizer.Combination)
+		optimizer.GenerateBaseCombinationsRecursive(enabledCriteria, 0, initialCombo, baseComboChan)
 	}()
 
 	// Create a slice to hold the final results.
@@ -117,8 +130,7 @@ func main() {
 
 	// Now, wait for the processing workers to finish their jobs.
 	// They can now freely send to resultsChan because the collector is draining it.
-	wg.Wait()
-	debugLog.Println("All processing workers finished.")
+	processWg.Wait()
 
 	// After the workers are done, we know no more results will be sent.
 	// So, we can safely close the results channel.
@@ -127,7 +139,7 @@ func main() {
 	// Finally, wait for the collector goroutine to finish its last loop
 	// (after the channel is closed).
 	collectorWg.Wait()
-	debugLog.Println("Result collector finished.")
+	debugLog.Println("All processing workers and collectors finished.")
 
 	// --- 6. Finalize and Output Results ---
 	// The `rawResults` slice is now fully populated.

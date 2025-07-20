@@ -11,13 +11,13 @@ console.log(`Master Orchestrator Processor: ${processorPath}`);
 // We only need one master orchestrator, as the parallelism is now handled inside Go.
 const highPriorityWorker = new Worker('high-priority-jobs', processorPath, {
     connection: redisConnection,
-    concurrency: 1, // Process one big optimization (which spawns Go) at a time.
+    concurrency: 3, // Process one big optimization (which spawns Go) at a time.
     lockDuration: 7200000, // 2 hour lock for a potentially very long job
 });
 
 const lowPriorityWorker = new Worker('low-priority-jobs', processorPath, {
     connection: redisConnection,
-    concurrency: 1, // Process one big optimization (which spawns Go) at a time.
+    concurrency: 3, // Process one big optimization (which spawns Go) at a time.
     lockDuration: 7200000, // 2 hour lock for a potentially very long job
 });
 

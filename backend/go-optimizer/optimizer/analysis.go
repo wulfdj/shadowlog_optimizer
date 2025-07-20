@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 )
 
 var debugLog = log.New(os.Stderr, "[Go-Optimizer-Debug] ", log.Ltime)
@@ -53,8 +54,17 @@ tradeLoop:
 				}
 				continue
 			}
+			var tradeValue reflect.Value
+			if strings.Contains(key, "|") {
+				parts := strings.Split(key, "|")
+				if trade.Direction == "BUY" {
+					tradeValue = getField(&trade, parts[0])
+				} else {
+					tradeValue = getField(&trade, parts[1])
+				}
+			}
 
-			tradeValue := getField(&trade, key)
+			tradeValue = getField(&trade, key)
 			if !tradeValue.IsValid() {
 				continue
 			}

@@ -164,25 +164,58 @@ func GenerateCombinations(criteria []CombinationCriterion) []Combination {
 
 // generatorWorker takes a slice of base combinations and augments them with all
 // time window variations, sending the results to the shared jobs channel.
+// func GeneratorWorker(
+// 	wg *sync.WaitGroup,
+// 	baseCombinationsChunk []Combination,
+// 	timeWindowVariations []map[string]int,
+// 	jobs chan<- Combination,
+// 	enableTimeWindowOptimization bool,
+// ) {
+// 	defer wg.Done()
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			// Log the panic to see what went wrong
+// 			debugLog.Printf("FATAL: Generator worker panicked: %v\n%s", r, debug.Stack())
+// 		}
+// 	}()
+
+// 	for _, baseCombo := range baseCombinationsChunk {
+// 		if enableTimeWindowOptimization && len(timeWindowVariations) > 0 {
+// 			for _, timeWindow := range timeWindowVariations {
+// 				// This is the augmentation logic
+// 				newCombo := make(Combination, len(baseCombo)+1)
+// 				for k, v := range baseCombo {
+// 					newCombo[k] = v
+// 				}
+// 				newCombo["TimeFilter"] = timeWindow
+// 				jobs <- newCombo
+// 			}
+// 		} else {
+// 			// If no time windows, just send the base combination
+// 			jobs <- baseCombo
+// 		}
+// 	}
+// }
+
+// GeneratorWorker now consumes from a channel of base combinations instead of a slice.
 func GeneratorWorker(
 	wg *sync.WaitGroup,
-	baseCombinationsChunk []Combination,
+	baseComboChan <-chan Combination, // Changed from slice to channel
 	timeWindowVariations []map[string]int,
-	jobs chan<- Combination,
+	jobs chan<- Combination, // This is the output channel (comboChan)
 	enableTimeWindowOptimization bool,
 ) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			// Log the panic to see what went wrong
 			debugLog.Printf("FATAL: Generator worker panicked: %v\n%s", r, debug.Stack())
 		}
 	}()
 
-	for _, baseCombo := range baseCombinationsChunk {
+	// The worker now pulls base combos from its input channel.
+	for baseCombo := range baseComboChan {
 		if enableTimeWindowOptimization && len(timeWindowVariations) > 0 {
 			for _, timeWindow := range timeWindowVariations {
-				// This is the augmentation logic
 				newCombo := make(Combination, len(baseCombo)+1)
 				for k, v := range baseCombo {
 					newCombo[k] = v
@@ -191,8 +224,57 @@ func GeneratorWorker(
 				jobs <- newCombo
 			}
 		} else {
-			// If no time windows, just send the base combination
 			jobs <- baseCombo
 		}
 	}
+}
+
+// GenerateBaseCombinationsRecursive streams base combinations directly to a channel
+// without ever holding the full list in memory.
+func GenerateBaseCombinationsRecursive(
+	criteria []CombinationCriterion,
+	index int,
+	currentCombo Combination,
+	baseComboChan chan<- Combination,
+) {
+	// Base case: If we have processed all criteria, send the complete combo.
+	if index == len(criteria) {
+		baseComboChan <- currentCombo
+		return
+	}
+
+	// Recursive step:
+	criterion := criteria[index]
+	effectiveTestValues := getEffectiveTestValues(criterion)
+
+	for _, value := range effectiveTestValues {
+		if value == nil {
+			// A nil value means "any", so we proceed without adding to the combo.
+			GenerateBaseCombinationsRecursive(criteria, index+1, currentCombo, baseComboChan)
+		} else {
+			// Create a new map for the next recursive call to ensure immutability.
+			nextCombo := make(Combination, len(currentCombo)+1)
+			for k, v := range currentCombo {
+				nextCombo[k] = v
+			}
+			nextCombo[criterion.ColumnHeader] = value
+			GenerateBaseCombinationsRecursive(criteria, index+1, nextCombo, baseComboChan)
+		}
+	}
+}
+
+// Private helper to get test values
+func getEffectiveTestValues(criterion CombinationCriterion) []interface{} {
+	if criterion.Type == "numericRange" {
+		var jsonNumThresholds []json.Number
+		for _, t := range criterion.Thresholds {
+			jsonNumThresholds = append(jsonNumThresholds, json.Number(fmt.Sprintf("%v", t)))
+		}
+		return generateNumericRanges(jsonNumThresholds, criterion.Mode)
+	}
+	// 'exact' type
+	if len(criterion.TestValues) > 0 {
+		return criterion.TestValues
+	}
+	return []interface{}{nil}
 }

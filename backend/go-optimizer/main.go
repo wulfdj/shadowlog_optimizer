@@ -99,15 +99,40 @@ func main() {
 		close(comboChan)
 	}()
 
-	// Wait for processing to finish, then close results channel
+	// Create a slice to hold the final results.
+	var rawResults []optimizer.Result
+
+	// This WaitGroup is for the collector goroutine.
+	var collectorWg sync.WaitGroup
+	collectorWg.Add(1)
+
+	// Start a dedicated collector goroutine.
+	// Its only job is to drain the results channel.
+	go func() {
+		defer collectorWg.Done()
+		for result := range resultsChan {
+			rawResults = append(rawResults, result)
+		}
+	}()
+
+	// Now, wait for the processing workers to finish their jobs.
+	// They can now freely send to resultsChan because the collector is draining it.
 	wg.Wait()
-	close(resultsChan)
 	debugLog.Println("All processing workers finished.")
 
+	// After the workers are done, we know no more results will be sent.
+	// So, we can safely close the results channel.
+	close(resultsChan)
+
+	// Finally, wait for the collector goroutine to finish its last loop
+	// (after the channel is closed).
+	collectorWg.Wait()
+	debugLog.Println("Result collector finished.")
+
 	// --- 6. Finalize and Output Results ---
-	rawResults := collectResults(resultsChan)
+	// The `rawResults` slice is now fully populated.
 	finalOutput := optimizer.ProcessFinalResults(rawResults)
-	debugLog.Printf("Processing complete. Found top results for %d strategies.", len(finalOutput))
+	debugLog.Printf("Processing complete. Found top results for %d strategies.", len(finalOutput)) // It might not be len(topResultsPerStrategy) anymore
 
 	outputJSON, err := json.Marshal(finalOutput)
 	if err != nil {

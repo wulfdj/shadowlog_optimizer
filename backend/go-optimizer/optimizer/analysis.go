@@ -337,9 +337,9 @@ func PrepareTradesForAnalysis(allTrades []Trade, settings map[string]interface{}
 			}
 
 			// These settings should ideally come from the config file itself
-			minShiftHours, _ := settings["timeWindowMinShiftHours"].(float64)
-			maxShiftHours, _ := settings["timeWindowMaxShiftHours"].(float64)
-			stepMinutes, _ := settings["timeWindowShiftStepMinutes"].(float64)
+			minShiftHours := -1.0
+			maxShiftHours := 1.0
+			stepMinutes := 60
 
 			timeWindowVariations = GenerateTimeWindows(baseMinMinutes, baseMaxMinutes, minShiftHours, maxShiftHours, int(stepMinutes))
 			debugLog.Printf("Generated %d time window variations.", len(timeWindowVariations))

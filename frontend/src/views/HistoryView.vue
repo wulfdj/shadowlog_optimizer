@@ -78,6 +78,7 @@
                         <th class="text-left">Net Profit</th>
                         <th class="text-left">Trades</th>
                         <th class="text-left">Combo Count</th>
+                        <th class="text-left">Time</th>
                         <th class="text-left">Combination</th>
                         <th class="text-left" style="width: 170px;">Actions</th>
                       </tr>
@@ -92,6 +93,7 @@
                         <td>{{ item.metrics[strategyName]?.netProfit?.toFixed(2) }}</td>
                         <td>{{ item.metrics[strategyName]?.totalTradesThisStrategy }}</td>
                         <td>{{ Object.keys(item.combination).length }}</td>
+                        <td>{{ extractTime(run, item) }}</td>
                         <td><small>{{ JSON.stringify(item.combination) }}</small></td>
                         <td>
                           <!-- Action Buttons -->
@@ -130,6 +132,7 @@ import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
 import { getTopResultsByStrategy } from '@/utils/resultProcessor';
 import { mdiDeleteOutline } from '@mdi/js';
+import { time } from 'console';
 
 // --- State Definitions ---
 interface HistoryRun {
@@ -255,6 +258,33 @@ function getPredefinedTime(run: HistoryRun): string | null {
     if (minMinutes) return `After ${minMinutes}`;
     if (maxMinutes) return `Before ${maxMinutes}`;
     return null;
+}
+
+function convertMinutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const paddedHours = String(hours).padStart(2, '0');
+  const paddedMinutes = String(minutes).padStart(2, '0');
+
+  return `${paddedHours}:${paddedMinutes}`;
+}
+
+function extractTime(run: any, item: any) {
+    console.log(run, item);
+    const timeFilter = item.combination?.TimeFilter;
+    if (timeFilter) {
+      //h := minutes / 60
+	    //m := minutes % 60
+	    //return fmt.Sprintf("%02d:%02d", h, m)
+      return `${convertMinutesToTime(timeFilter.minMinutes)} - ${convertMinutesToTime(timeFilter.maxMinutes)}`;
+    } 
+    const filters = run.configuration.settings?.predefinedFilters || [];
+    const found = filters.find((f: any) => f.type === 'timeRange');
+    if (found) {
+      return `${found.condition.minMinutes} - ${found.condition.maxMinutes}`;
+    }
+    return "No Time"
 }
 
 async function confirmDelete(runToDelete: HistoryRun) {

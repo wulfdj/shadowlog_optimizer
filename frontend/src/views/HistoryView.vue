@@ -271,7 +271,7 @@ function convertMinutesToTime(totalMinutes: number): string {
 }
 
 function extractTime(run: any, item: any) {
-    console.log(run, item);
+    //console.log(run, item);
     const timeFilter = item.combination?.TimeFilter;
     if (timeFilter) {
       //h := minutes / 60

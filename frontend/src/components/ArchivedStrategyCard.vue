@@ -49,7 +49,7 @@
 
             <v-divider></v-divider>
             <div class="mt-2">
-              <strong>Time Settings:</strong> {{ getPredefinedTime(item.configuration) || 'Any' }} <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> {{ getTimeRangeFromCombination(item) }}</span>
+              <strong>Time Settings:</strong><v-chip size="small" color="orange"> {{ getPredefinedTime(item.configuration) || 'Any' }}</v-chip> <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> <v-chip size="small" color="green">{{ getTimeRangeFromCombination(item) }}</v-chip></span>
               <br/>
               <strong>Setup:</strong> {{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}
             </div>
@@ -121,11 +121,25 @@ const props = defineProps({
   },
 });
 const emit = defineEmits(['edit-tags', 'delete-item', 'apply-filter']);
+
+function convertMinutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const paddedHours = String(hours).padStart(2, '0');
+  const paddedMinutes = String(minutes).padStart(2, '0');
+
+  return `${paddedHours}:${paddedMinutes}`;
+}
+
 function getTimeRangeFromCombination(item: any): string | null {
   //console.log("getTimeRangeFromCombination: ", item);
   const combination = item.resultData.combination;
-  if (!combination.TimeWindow) return null;
-  return combination.TimeWindow;
+  if (combination.TimeWindow || combination.TimeFilter) {
+    return `${convertMinutesToTime(combination.TimeFilter.minMinutes)} - ${convertMinutesToTime(combination.TimeFilter.maxMinutes)}`;
+  } else {
+    return null;
+  }
 }
 
 function getPredefinedFilter(config: any, filterName: 'Setup' | 'Session'): string | null {

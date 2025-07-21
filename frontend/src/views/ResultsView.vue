@@ -44,6 +44,11 @@ import { AgGridVue } from "ag-grid-vue3";
 // This simplifies the code and avoids potential version conflicts.
 import { type GridApi, type GridReadyEvent, type ColDef } from "ag-grid-community";
 import { useFilterStore } from '@/stores/filterStore';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
 const filterStore = useFilterStore();
 const route = useRoute();
 const router = useRouter();
@@ -135,7 +140,7 @@ const fetchResults = async () => {
   if (isNaN(resultId)) return;
 
   try {
-    const response = await api.getResultDetails(resultId);
+    const response = await api.getResultDetails(instrumentStore.selectedInstrument, resultId);
     const data = response.data;
 
     // The JSON parsing logic is still correct and necessary.

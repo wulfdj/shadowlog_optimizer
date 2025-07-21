@@ -47,13 +47,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
 import api from '@/services/api';
 
 import { AgGridVue } from "ag-grid-vue3";
 import { AllCommunityModule, type ColDef, ModuleRegistry } from 'ag-grid-community';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const router = useRouter();
@@ -194,7 +199,7 @@ const defaultColDef = ref({
 onMounted(async () => {
   try {
     const timeframe = filterStore.activeConfiguration.settings.dataSheetName;
-    const response = await api.getTradesByTimeframe(timeframe);
+    const response = await api.getTradesByTimeframe(instrumentStore.selectedInstrument, timeframe);
     allTrades.value = response.data;
   } catch (error) {
     console.error("Could not fetch trade dataset:", error);

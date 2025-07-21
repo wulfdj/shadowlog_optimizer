@@ -207,7 +207,7 @@ const archiveStrategy = async (resultItem: any, configId: number, strategyName: 
   archivingStatus.value.add(uniqueId);
 
   try {
-    await api.saveToArchive({
+    await api.saveToArchive(instrumentStore.selectedInstrument, {
       configurationId: configId,
       resultData: resultItem,
       strategyName: strategyName,

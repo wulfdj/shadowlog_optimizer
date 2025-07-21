@@ -53,8 +53,10 @@ router.post("/:instrument", async (req, res) => {
  */
 router.get("/:instrument", async (req, res) => {
     const archiveRepo = AppDataSource.getRepository(ArchivedResult);
+    const {instrument} = req.params;
     try {
         const archivedResults = await archiveRepo.find({
+            where: {instrument: instrument},
             order: { archivedAt: "DESC" }
         });
         res.json(archivedResults);

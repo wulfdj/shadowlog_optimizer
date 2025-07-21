@@ -58,7 +58,9 @@ func main() {
 	}
 
 	enabledCriteria := optimizer.BuildEnabledCriteria(config.Settings)
-	debugLog.Printf("Found %d enabled criteria. Starting streaming generation...", len(enabledCriteria))
+	timeShiftEnabled, _ := config.Settings["enableTimeShift"].(bool)
+	totalJobs := optimizer.CalculateTotalCombinations(enabledCriteria, timeWindows, timeShiftEnabled)
+	debugLog.Printf("Calculated total jobs to process: %d", totalJobs)
 	//baseCombinations := optimizer.GenerateCombinations(enabledCriteria)
 	//combinationsJSON, _ := json.Marshal(baseCombinations)
 	//log.Println(string(combinationsJSON))
@@ -70,7 +72,7 @@ func main() {
 
 	// --- 4. Setup Workers, Channels, and Reporting ---
 	var processedCounter uint64
-	reporter, err := reporting.NewProgressReporter(redisURL, jobID, 0, &processedCounter)
+	reporter, err := reporting.NewProgressReporter(redisURL, jobID, totalJobs, &processedCounter)
 	if err != nil {
 		debugLog.Fatalf("Failed to start progress reporter: %v", err)
 	}
@@ -200,24 +202,6 @@ func determineGeneratorCount(numBaseCombos int) int {
 		numGen = numBaseCombos
 	}
 	return numGen
-}
-
-func calculateChunk(i, totalChunks, totalItems int) (start, end int) {
-	chunkSize := totalItems / totalChunks
-	start = i * chunkSize
-	end = start + chunkSize
-	if i == totalChunks-1 {
-		end = totalItems
-	}
-	return
-}
-
-func collectResults(resultsChan <-chan optimizer.Result) []optimizer.Result {
-	var results []optimizer.Result
-	for result := range resultsChan {
-		results = append(results, result)
-	}
-	return results
 }
 
 func outputEmptyResult() {

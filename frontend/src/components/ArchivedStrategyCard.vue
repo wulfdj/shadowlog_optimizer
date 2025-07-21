@@ -4,7 +4,7 @@
             <v-icon color="amber" class="mr-2" :icon="mdiStar"></v-icon>
             {{ item.configuration.name }}
           </v-card-title>
-          <v-card-subtitle>Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  Strategy: <v-chip size="small" color="blue-grey" class="ml-1">{{ item.strategyName }}</v-chip></v-card-subtitle>
+          <v-card-subtitle>Strategy: <v-chip color="primary" variant="flat" class="ml-1">{{ item.strategyName }}</v-chip>   Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  </v-card-subtitle>
           
           <v-card-text>
             <div class="mb-4">
@@ -48,10 +48,11 @@
             </div>
 
             <v-divider></v-divider>
-            <div class="mt-2">
-              <strong>Time Settings:</strong><v-chip size="small" color="orange"> {{ getPredefinedTime(item.configuration) || 'Any' }}</v-chip> <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> <v-chip size="small" color="green">{{ getTimeRangeFromCombination(item) }}</v-chip></span>
-              <br/>
-              <strong>Setup:</strong> {{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}
+            <div class="predefined-grid mb-4">
+              <div><strong>Setup:</strong> <v-chip size="small" color="blue">{{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}</v-chip></div>
+              <div><strong>Time Settings:</strong><v-chip size="small" color="orange"> {{ getPredefinedTime(item.configuration) || 'Any' }}</v-chip></div>
+              <div> <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> <v-chip size="small" color="green">{{ getTimeRangeFromCombination(item) }}</v-chip></span></div>
+              
             </div>
             <!-- Configuration Details -->
             <v-expansion-panels>
@@ -196,6 +197,11 @@ function getMetric(item: any, metricKey: string, asPercent: boolean = false): st
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 1rem;
+}
+.predefined-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
   gap: 1rem;
 }
 </style>

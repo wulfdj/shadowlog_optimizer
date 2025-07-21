@@ -107,7 +107,7 @@
     <v-row v-else>
       <v-col v-for="run in latestRuns" :key="run.id" cols="12" md="6" lg="4">
         <v-card class="fill-height">
-          <v-card-title>Run: {{ run.configuration.name }}</v-card-title>
+          <v-card-title>{{ run.configuration.name }}</v-card-title>
           <v-card-subtitle>{{ new Date(run.completedAt).toLocaleString() }}</v-card-subtitle>
           <v-card-text>
             <div v-if="run.bestResult">
@@ -147,7 +147,7 @@
     <v-row v-else>
       <v-col v-for="item in archivedStrategies" :key="item.id" cols="12" md="6" lg="4">
         <v-card class="fill-height" color="surface-variant" variant="tonal">
-          <v-card-title>{{ item.name }}</v-card-title>
+          <v-card-title>{{ item.configuration.name }} - {{ item.strategyName }}</v-card-title>
           <v-card-subtitle>Archived: {{ new Date(item.archivedAt).toLocaleString() }}</v-card-subtitle>
           <v-card-text>
             <p><strong>Overall Score: {{ item.resultData.overallScore.toFixed(3) }}</strong></p>
@@ -222,7 +222,7 @@ function getMetric(item: any, metricKey: string, asPercent: boolean = false): st
     metric = item.resultData?.metrics?.[strategyName]?.[metricKey];
   }
 
-  console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
+  //console.log("metric for: " + strategyName +", as percent: " + asPercent + ", type: " + (typeof metric), metric);
   if (metric === undefined || metric === null) return 'N/A';
   if (metric === Infinity) return '∞';
   if (typeof metric !== 'number') return metric;

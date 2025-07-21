@@ -3,7 +3,6 @@
       <v-row align="center" class="mb-4">
       <v-col>
         <h1 class="text-h5 font-weight-bold">Archived Strategies</h1>
-        <p class="text-secondary">Your hand-picked list of best-performing strategies.</p>
       </v-col>
       <v-col class="text-right d-flex align-center justify-end">
         <!-- Sort Controls -->

@@ -10,7 +10,7 @@ const apiClient = axios.create({
 
 export default {
     uploadTrades(instrument: string, trades: any[], timeframe: string) {
-        return apiClient.post(`/trades/${instrument}/upload/${timeframe}`, trades);
+        return apiClient.post(`/trades/upload/${instrument}/${timeframe}`, trades);
     },
     getTradesByTimeframe(instrument: string, timeframe: string) {
         return apiClient.get(`/trades/${instrument}/${timeframe}`);
@@ -46,9 +46,9 @@ export default {
     getArchivedResults(instrument: string) {
         return apiClient.get(`/archive/${instrument}`);
     },
-    saveToArchive(payload: { configurationId: number, resultData: object, strategyName: string }) {
+    saveToArchive(instrument: string, payload: { configurationId: number, resultData: object, strategyName: string }) {
         console.log("saveToArchive: ", payload);
-        return apiClient.post('/archive', payload);
+        return apiClient.post(`/archive/${instrument}`, payload);
     },
 
     deleteArchivedResult(id: number) {

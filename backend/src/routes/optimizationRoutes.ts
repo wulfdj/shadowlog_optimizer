@@ -90,7 +90,7 @@ router.post("/stop/:jobId", async (req, res) => {
         try {
             // This sends the termination signal to the process.
             // 'SIGTERM' is a graceful shutdown signal.
-            process.kill(pid, 'SIGTERM');
+            process.kill(pid, 'SIGHUP');
         } catch (e: any) {
             // This can happen if the process has already died but the Redis key hasn't expired.
             console.warn(`Could not kill PID ${pid}, it may have already exited:`, e.message);

@@ -9,7 +9,7 @@ const router = Router();
  * A helper function to map raw CSV row data to a proper Trade entity instance,
  * applying all necessary type conversions.
  */
-function createTradeEntityFromRaw(raw: any, timeframe: string, instrument: string): Trade {
+function createTradeEntityFromRaw(raw: any, instrument: string, timeframe: string): Trade {
     const trade = new Trade();
 
     // Map and transform each property
@@ -158,7 +158,7 @@ router.post("/upload/:instrument/:timeframe", async (req, res) => {
     try {
         // IMPORTANT: Now we only clear the data for the specific timeframe being uploaded.
         console.log(`Clearing existing trade data for timeframe: ${timeframe}...`);
-        await queryRunner.manager.delete(Trade, { timeframe: timeframe });
+        await queryRunner.manager.delete(Trade, { timeframe: timeframe, instrument: instrument });
 
         const chunkSize = 500;
         console.log(`Starting bulk insert of ${tradeEntities.length} records...`);

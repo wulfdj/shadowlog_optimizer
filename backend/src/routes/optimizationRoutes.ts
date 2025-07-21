@@ -39,7 +39,7 @@ router.get("/active", async (req, res) => {
                 return {
                     id: job.id,
                     // Parse the progress, defaulting to the job's own progress if not found
-                    instrument: job.instrument,
+                    instrument: job.data.instrument,
                     progress: progress ? parseInt(progress, 10) : job.progress,
                     startedAt: job.timestamp,
                     configId: job.data.configId,
@@ -53,6 +53,7 @@ router.get("/active", async (req, res) => {
          const waitingJobsToDisplay = waitingJobs.map(job => ({
             id: job.id,
             name: job.data.configurationName,
+            instrument: job.data.instrument,
             highPriority: job.data.highPriority,
             queuedAt: job.timestamp,
         }));

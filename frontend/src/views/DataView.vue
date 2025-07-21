@@ -1,12 +1,11 @@
 <template>
-  <v-container fluid>
-    <v-row align="center">
+  <v-container>
+    <v-row align="center" class="mb-4">
       <v-col>
         <h1>Data Explorer</h1>
-        <p>Browse and filter raw imported trade data for each timeframe.</p>
       </v-col>
       <v-col class="text-right">
-        <v-btn color="primary" @click="openImportDialog">
+        <v-btn variant="tonal" color="primary" @click="openImportDialog">
           Import New CSV
         </v-btn>
       </v-col>
@@ -36,8 +35,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey" text @click="closeImportDialog">Cancel</v-btn>
-          <v-btn color="primary" text @click="handleFileUpload" :loading="importDialog.isUploading"
+          <v-btn variant="tonal" color="grey" text @click="closeImportDialog">Cancel</v-btn>
+          <v-btn variant="tonal" color="success" text @click="handleFileUpload" :loading="importDialog.isUploading"
             :disabled="!importDialog.timeframe || !importDialog.file">
             Upload
           </v-btn>

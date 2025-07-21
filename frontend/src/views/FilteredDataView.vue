@@ -3,7 +3,7 @@
     <v-row>
       <v-col>
         <h1>Filtered Data View</h1>
-        <v-btn @click="goBack" prepend-icon="mdi-arrow-left" class="mb-4">Back to Results</v-btn>
+        <v-btn variant="tonal" @click="goBack" class="mb-4">Back to Results</v-btn>
       </v-col>
     </v-row>
 
@@ -27,7 +27,7 @@
           <v-card class="mb-4" height="100%">
             <v-card-title>Winning Combinatorial Filters</v-card-title>
             <v-card-text>
-              <pre><code>{{ JSON.stringify(filterStore.activeResult.combination, null, 2) }}</code></pre>
+              <pre><code>{{ JSON.stringify(filterStore.activeResult.resultData.combination, null, 2) }}</code></pre>
             </v-card-text>
           </v-card>
         </v-col>
@@ -39,6 +39,7 @@
           :rowData="filteredTrades"
           :columnDefs="columnDefs"
           :defaultColDef="defaultColDef"
+          :theme="myTheme"
           style="width: 100%; height: 100%;"
         ></ag-grid-vue>
       </div>
@@ -53,8 +54,10 @@ import { useFilterStore } from '@/stores/filterStore';
 import api from '@/services/api';
 
 import { AgGridVue } from "ag-grid-vue3";
-import { AllCommunityModule, type ColDef, ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule, type ColDef, ModuleRegistry, themeBalham, colorSchemeLight } from 'ag-grid-community';
 import { useInstrumentStore } from '@/stores/instrumentStore';
+
+const myTheme = themeBalham.withPart(colorSchemeLight);
 
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();
@@ -82,17 +85,21 @@ function timeToMinutes(timeValue: string): number {
 
 // This function now applies BOTH predefined and combinatorial filters
 function applyAllFilters(trades: any[], config: any, result: any) {
+  
   if (!config || !result) return [];
 
   const predefinedFilters = config.settings?.predefinedFilters || [];
   const combination = result.combination || {};
-
+  console.log("applyAllFilters: ",trades, predefinedFilters, combination);
   return trades.filter(trade => {
     // --- Rule 1: Always check if Entered is true ---
     if (trade.Entered !== true) {
       return false;
     }
 
+    const timeFilterInCombination = combination.TimeFilter !== undefined;
+
+    
     // --- Rule 2: Apply PREDEFINED filters from the configuration ---
     for (const filter of predefinedFilters) {
         const cellValue = trade[filter.columnHeader];
@@ -100,7 +107,7 @@ function applyAllFilters(trades: any[], config: any, result: any) {
         if (filter.type === 'exact') {
             if (cellValue !== filter.condition) return false;
         } 
-        else if (filter.type === 'timeRange') {
+        else if (filter.type === 'timeRange' && !timeFilterInCombination) {
             const tradeTimeInMinutes = timeToMinutes(trade.Time);
             if (isNaN(tradeTimeInMinutes)) return false;
 
@@ -120,6 +127,9 @@ function applyAllFilters(trades: any[], config: any, result: any) {
         if (cellValue === null || isNaN(cellValue)) return false;
         if (filterCondition.min !== undefined && cellValue < filterCondition.min) return false;
         if (filterCondition.max !== undefined && cellValue > filterCondition.max) return false;
+      } else if (columnHeader === 'TimeFilter') {
+        if (filterCondition.minMinutes !== undefined && timeToMinutes(cellValue) < filterCondition.minMinutes) return false;
+        if (filterCondition.maxMinutes !== undefined && timeToMinutes(cellValue) > filterCondition.maxMinutes) return false;
       } else {
         if (cellValue !== filterCondition) return false;
       }
@@ -133,7 +143,7 @@ function applyAllFilters(trades: any[], config: any, result: any) {
 // --- The rest of the script remains largely the same ---
 
 const filteredTrades = computed(() => {
-  return applyAllFilters(allTrades.value, filterStore.activeConfiguration, filterStore.activeResult);
+  return applyAllFilters(allTrades.value, filterStore.activeConfiguration, filterStore.activeResult.resultData);
 });
 
 const goBack = () => {
@@ -199,6 +209,7 @@ const defaultColDef = ref({
 onMounted(async () => {
   try {
     const timeframe = filterStore.activeConfiguration.settings.dataSheetName;
+    console.log("onMounted: ", timeframe, instrumentStore.selectedInstrument);
     const response = await api.getTradesByTimeframe(instrumentStore.selectedInstrument, timeframe);
     allTrades.value = response.data;
   } catch (error) {

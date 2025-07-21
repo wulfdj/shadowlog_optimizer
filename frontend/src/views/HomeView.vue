@@ -1,12 +1,5 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col>
-        <h1>Dashboard</h1>
-        <p>A high-level overview of your most recent and best-performing strategies.</p>
-      </v-col>
-    </v-row>
-
+  <v-container width="100%">
 <!-- Section 0: IN-PROGRESS JOBS (Now with more details) -->
 <template v-if="activeJobs.length > 0">
     <v-row>
@@ -18,7 +11,7 @@
         <v-col v-for="job in activeJobs" :key="job.id" cols="12" md="6">
             <v-card border>
               <v-card-title class="d-flex justify-space-between align-center">
-                <span class="text-subtitle-1">{{ job.name }}</span>
+                <span class="text-subtitle-1">{{ job.instrument }} - {{ job.name }}</span>
                 <v-btn
                   color="red-lighten-1"
                   variant="tonal"
@@ -112,8 +105,8 @@
           <v-card-text>
             <div v-if="run.bestResult">
               <p><strong>Best Overall Score: {{ run.bestResult.overallScore.toFixed(3) }}</strong></p>
-              <v-chip size="small" class="mr-2">Trades: {{ run.bestResult.overallTradeCount }}</v-chip>
-              <v-chip size="small">PF: {{ getBestProfitFactor(run.bestResult) }}</v-chip>
+              <v-chip size="small" label color="green" class="ma-2">Trades: {{ run.bestResult.overallTradeCount }}</v-chip>
+              <v-chip label color="green" size="small">PF: {{ getBestProfitFactor(run.bestResult) }}</v-chip>
               <p class="text-caption mt-2 text-truncate">
                 Best Combo: {{ JSON.stringify(run.bestResult.combination) }}
               </p>
@@ -124,7 +117,7 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn :to="`/results/${run.id}`">View Full Report</v-btn>
+            <v-btn variant="tonal" color="primary" :to="`/results/${run.id}`">View Full Report</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -147,18 +140,18 @@
     <v-row v-else>
       <v-col v-for="item in archivedStrategies" :key="item.id" cols="12" md="6" lg="4">
         <v-card class="fill-height" color="surface-variant" variant="tonal">
-          <v-card-title>{{ item.configuration.name }} - {{ item.strategyName }}</v-card-title>
+          <v-card-title>{{ item.configuration.name }} - {{ item.strategyame }}</v-card-title>
           <v-card-subtitle>Archived: {{ new Date(item.archivedAt).toLocaleString() }}</v-card-subtitle>
           <v-card-text>
             <p><strong>Overall Score: {{ item.resultData.overallScore.toFixed(3) }}</strong></p>
-            <v-chip size="small" class="mr-2">Trades: {{ getMetric(item, "totalTradesThisStrategy") }}</v-chip>
-            <v-chip size="small">PF: {{ getMetric(item, "profitFactor") }}</v-chip>
-            <v-chip size="small">WR: {{ getMetric(item, "winRate", true) }}</v-chip>
+            <v-chip label color="green" size="small" class="mr-2">Trades: {{ getMetric(item, "totalTradesThisStrategy") }}</v-chip>
+            <v-chip label color="green" size="small">PF: {{ getMetric(item, "profitFactor") }}</v-chip>
+            <v-chip label color="green" size="small">WR: {{ getMetric(item, "winRate", true) }}</v-chip>
             <p v-if="item.notes" class="text-body-2 mt-2 font-italic">Notes: "{{ item.notes }}"</p>
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn @click="applyAndGo(item.resultData.combination)">Apply Filter</v-btn>
+            <v-btn variant="tonal" color="primary" @click="applyAndGo(item)">Apply Filter</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -246,12 +239,13 @@ function getBestProfitFactor(result: any): string {
   return bestPF.toFixed(2);
 }
 
-function applyAndGo(combination: object) {
+function applyAndGo(resultData: any) {
+    console.log("resultData: ", resultData)
     // This assumes the configuration used is not needed for the filtered view,
     // which is the case for our current FilteredDataView.vue.
     // If it were needed, we'd have to store the config ID with the archive.
     const mockConfiguration = { settings: { predefinedFilters: [] }};
-    filterStore.setFiltersAndNavigate({ combination }, mockConfiguration, router);
+    filterStore.setFiltersAndNavigate(resultData, resultData.configuration, router);
 }
 
 const stoppingJobs = ref(new Set<string | number>());

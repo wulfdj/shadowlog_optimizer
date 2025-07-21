@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <v-container>
     <div v-if="!resultDetails" class="text-center mt-12">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
       <p class="mt-4">Loading Results...</p>
@@ -25,6 +25,7 @@
               :defaultColDef="defaultColDef"
                :row-data="rowData"
               @grid-ready="onGridReady"
+              :theme="myTheme"
               style="height: 100%; width: 100%;"
             ></ag-grid-vue>
           </div>
@@ -42,10 +43,11 @@ import api from '@/services/api';
 import { AgGridVue } from "ag-grid-vue3";
 // Removing the explicit ModuleRegistry, as ag-grid-vue3 handles this for community features.
 // This simplifies the code and avoids potential version conflicts.
-import { type GridApi, type GridReadyEvent, type ColDef } from "ag-grid-community";
+import { type GridApi, type GridReadyEvent, type ColDef, themeBalham, colorSchemeLight } from "ag-grid-community";
 import { useFilterStore } from '@/stores/filterStore';
 import { useInstrumentStore } from '@/stores/instrumentStore';
 
+const myTheme = themeBalham.withPart(colorSchemeLight);
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();
 

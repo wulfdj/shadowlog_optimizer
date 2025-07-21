@@ -1,9 +1,13 @@
 <template>
-  <v-app>
-    <v-app-bar app color="primary" dark>
+  <v-app :theme="theme">
+    <v-app-bar app dark :color="theme === 'light' ? 'primary' : ''">
+       <v-btn
+          
+          :icon="theme === 'light' ? 'mdiWeatherSunny' : 'mdiWeatherNight'"
+          slim
+          @click="onClick"
+        ></v-btn>
       <v-toolbar-title>Shadowlog Optimizer Pro</v-toolbar-title>
-      
-
       <v-spacer></v-spacer>
       <v-select
         :items="instrumentStore.availableInstruments"
@@ -28,10 +32,18 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useInstrumentStore } from '@/stores/instrumentStore';
+import { mdiWeatherSunny, mdiWeatherNight, mdiThemeLightDark} from '@mdi/js';
 const instrumentStore = useInstrumentStore();
 
 console.log("BaseURL: " + import.meta.env.VITE_API_BASE_URL);
+
+  const theme = ref('light')
+
+  function onClick () {
+    theme.value = theme.value === 'light' ? 'dark' : 'light'
+  }
 </script>
 
 <style scoped>

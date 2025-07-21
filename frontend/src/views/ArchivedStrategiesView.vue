@@ -26,7 +26,7 @@
           <v-btn  value="list"><v-icon :icon="mdiViewListOutline"></v-icon></v-btn>
         </v-btn-toggle>
 
-        <v-btn color="primary" @click="importDialog.show = true" class="ml-4">
+        <v-btn variant="tonal" color="primary" @click="importDialog.show = true" class="ml-4">
           <v-icon :icon="mdiImport" left></v-icon>
           Import
         </v-btn>
@@ -73,8 +73,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text @click="importDialog.show = false">Cancel</v-btn>
-          <v-btn color="primary" text @click="handleImport" :loading="importDialog.isImporting">Import</v-btn>
+          <v-btn variant="tonal" text @click="importDialog.show = false">Cancel</v-btn>
+          <v-btn variant="tonal" color="success" text @click="handleImport" :loading="importDialog.isImporting">Import</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -93,6 +93,7 @@
               :color="tag.color"
               filter
               variant="flat"
+              label
               closable
               @click:close="confirmDeleteTag(tag)"
             >
@@ -112,14 +113,14 @@
               <ColorPalettePicker v-model="tagDialog.newTagColor" />
             </v-col>
             <v-col cols="12" sm="2">
-              <v-btn color="secondary" @click="createNewTag" :disabled="!tagDialog.newTagName || !tagDialog.newTagColor" block>Create</v-btn>
+              <v-btn variant="tonal" color="secondary" @click="createNewTag" :disabled="!tagDialog.newTagName || !tagDialog.newTagColor" block>Create</v-btn>
             </v-col>
           </v-row>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text @click="tagDialog.show = false">Cancel</v-btn>
-          <v-btn color="primary" text @click="saveTags" :loading="tagDialog.isSaving">Save Assignments</v-btn>
+          <v-btn variant="tonal" text @click="tagDialog.show = false">Cancel</v-btn>
+          <v-btn variant="tonal" color="success" text @click="saveTags" :loading="tagDialog.isSaving">Save Assignments</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

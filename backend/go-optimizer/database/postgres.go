@@ -52,7 +52,7 @@ func (db *DB) FetchAllTrades(instrument string, timeframe string) ([]optimizer.T
 		"TP_SR_STATIC_SL_STR_WIN", "TP_SR_STATIC_PIPS", "TP_SR_CURRENT_PW_WIN",
 		"TP_SR_CURRENT_STR_WIN", "TP_SR_CURRENT_PIPS", "M10_Candle", "M15_Candle", "M30_Candle",
 		"H1_Candle", "H4_Candle", "D1_Candle", "M10_Candle_Open", "M15_Candle_Open", "M30_Candle_Open",
-		"H1_Candle_Open", "H4_Candle_Open", "D1_Candle_Open"
+		"H1_Candle_Open", "H4_Candle_Open", "D1_Candle_Open", "S2_Previous_Support_Distance", "S2_Previous_Resistance_Distance", "S3_Reversal_Candle_Size"
 	FROM trade 
 	WHERE timeframe=$1 AND instrument=$2`
 	rows, err := db.Pool.Query(context.Background(), query, timeframe, instrument)
@@ -75,7 +75,7 @@ func (db *DB) FetchAllTrades(instrument string, timeframe string) ([]optimizer.T
 			&t.TP_SR_STATIC_SL_STR_WIN, &t.TP_SR_STATIC_PIPS, &t.TP_SR_CURRENT_PW_WIN,
 			&t.TP_SR_CURRENT_STR_WIN, &t.TP_SR_CURRENT_PIPS, &t.M10_Candle, &t.M15_Candle, &t.M30_Candle,
 			&t.H1_Candle, &t.H4_Candle, &t.D1_Candle, &t.M10_Candle_Open, &t.M15_Candle_Open, &t.M30_Candle_Open,
-			&t.H1_Candle_Open, &t.H4_Candle_Open, &t.D1_Candle_Open,
+			&t.H1_Candle_Open, &t.H4_Candle_Open, &t.D1_Candle_Open, &t.S2_Previous_Support_Distance, &t.S2_Previous_Resistance_Distance, &t.S3_Reversal_Candle_Size,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning trade row: %w", err)

@@ -18,14 +18,7 @@
         <v-expansion-panels v-else @update:model-value="val => handlePanelChange(val as number | undefined)">
           <v-expansion-panel v-for="run in history" :key="run.id" :value="run.id">
             <v-expansion-panel-title>
-              <v-btn
-                    :icon="mdiDeleteOutline"
-                    variant="text"
-                    size="small"
-                    color="grey"
-                    title="Delete this history entry"
-                    @click.stop="confirmDelete(run)"
-                  ></v-btn> 
+             
               <div class="panel-title-grid">
                 <!-- Column 1: Main Name & Timestamps -->
                 <div class="font-weight-bold">{{ run.configuration.name }}</div>
@@ -35,9 +28,8 @@
                 
                 <!-- Column 2: Predefined Filters Summary -->
                 <div class="text-caption">
-                  <v-chip v-if="getPredefinedFilter(run, 'Setup')" size="x-small" class="mr-1">{{ getPredefinedFilter(run, 'Setup') }}</v-chip>
-                  <v-chip v-if="getPredefinedFilter(run, 'Session')" size="x-small" class="mr-1">{{ getPredefinedFilter(run, 'Session') }}</v-chip>
-                  <v-chip v-if="getPredefinedTime(run)" size="x-small" class="mr-1">{{ getPredefinedTime(run) }}</v-chip>
+                  <v-chip label color="blue" v-if="getPredefinedFilter(run, 'Setup')" size="small" class="mr-1">{{ getPredefinedFilter(run, 'Setup') }}</v-chip>
+                  <v-chip label color="blue" v-if="getPredefinedTime(run)" size="small" class="mr-1">{{ getPredefinedTime(run) }}</v-chip>
                 </div>
 
                 <!-- Column 3: Tested Combinations Summary -->
@@ -52,9 +44,14 @@
                     </div>
                   </v-tooltip>
                 </div>
-
-               
               </div>
+               <v-btn
+                    variant="tonal"
+                    size="small"
+                    color="error"
+                    style="margin-right:20px;"
+                    @click.stop="confirmDelete(run)"
+                  >Delete</v-btn> 
             </v-expansion-panel-title>
 
             <v-expansion-panel-text>
@@ -98,15 +95,16 @@
                         <td>
                           <!-- Action Buttons -->
                           <v-btn
-                            size="x-small"
-                            color="amber-darken-1"
+                            size="small"
+                            variant="tonal"
+                            color="success"
                             @click="archiveStrategy(item, run.configuration.id, strategyName)"
                             :loading="isArchiving(run.id, strategyName)"
                             class="mr-2"
                           >
                             Save
                           </v-btn>
-                          <v-btn size="x-small" color="deep-purple-lighten-1" @click="applyAndGo(item, run.configuration)">Apply</v-btn>
+                          <v-btn variant="tonal" size="small" color="primary" @click="applyAndGo(item, run.configuration)">Apply</v-btn>
                         </td>
                       </tr>
                     </tbody>
@@ -324,6 +322,6 @@ onMounted(() => {
   grid-template-columns: 2fr 1fr 1fr; /* Adjust column ratios as needed */
   width: 100%;
   align-items: center;
-  gap: 16px;
+  gap: 1px;
 }
 </style>

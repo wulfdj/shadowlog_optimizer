@@ -4,7 +4,7 @@
             <v-icon color="amber" class="mr-2" :icon="mdiStar"></v-icon>
             {{ item.configuration.name }}
           </v-card-title>
-          <v-card-subtitle>Strategy: <v-chip color="primary" variant="flat" class="ml-1">{{ item.strategyName }}</v-chip>   Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  </v-card-subtitle>
+          <v-card-subtitle><v-chip label color="primary" variant="flat" class="ml-1">{{ item.strategyName }}</v-chip>   Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  </v-card-subtitle>
           
           <v-card-text>
             <div class="mb-4">
@@ -18,7 +18,7 @@
               >
                   {{ tag.name }}
               </v-chip>
-              <span v-if="!item.tags || item.tags.length === 0" class="text-caption">No tags assigned.</span>
+              <span v-if="!item.tags || item.tags.length === 0" class="text-caption"></span>
           </div>
 
             <p v-if="item.notes" class="font-italic mb-4">"{{ item.notes }}"</p>
@@ -46,12 +46,11 @@
                 <div class="text-h6">{{ getMetric(item, 'totalTradesThisStrategy') || 'N/A' }}</div>
               </div>
             </div>
-
-            <v-divider></v-divider>
+           
             <div class="predefined-grid mb-4">
-              <div><strong>Setup:</strong> <v-chip size="small" color="blue">{{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}</v-chip></div>
-              <div><strong>Time Settings:</strong><v-chip size="small" color="orange"> {{ getPredefinedTime(item.configuration) || 'Any' }}</v-chip></div>
-              <div> <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> <v-chip size="small" color="green">{{ getTimeRangeFromCombination(item) }}</v-chip></span></div>
+              <div><strong>Setup:</strong> <v-chip label size="small" color="blue">{{ getPredefinedFilter(item.configuration, 'Setup') || 'Any' }}</v-chip></div>
+              <div><strong>Time Settings:</strong><v-chip label size="small" color="orange"> {{ getPredefinedTime(item.configuration) || 'Any' }}</v-chip></div>
+              <div> <span v-if="getTimeRangeFromCombination(item) !== null"><strong>Actual Time: </strong> <v-chip label size="small" color="green">{{ getTimeRangeFromCombination(item) }}</v-chip></span></div>
               
             </div>
             <!-- Configuration Details -->
@@ -92,21 +91,20 @@
 
           <v-card-actions>
              <v-btn
-                :icon="mdiTagMultipleOutline"
-                variant="text"
+                variant="tonal"
                 color="grey"
                 @click="emit('edit-tags', item)"
                 title="Edit tags"
-            ></v-btn>
+            >Tags</v-btn>
             <v-btn
-              :icon="mdiDeleteOutline"
-              variant="text"
-              color="grey"
+              
+              variant="tonal"
+              color="error"
               @click="emit('delete-item', item)"
-              title="Delete this archived strategy"
-            ></v-btn>
+              
+            >Delete</v-btn>
             <v-spacer></v-spacer>
-            <v-btn color="deep-purple-lighten-1" @click="emit('apply-filter', item)">Apply & View Trades</v-btn>
+            <v-btn variant="tonal" color="primary" @click="emit('apply-filter', item)">Apply Filter</v-btn>
           </v-card-actions>
         </v-card>
 </template>
@@ -201,7 +199,7 @@ function getMetric(item: any, metricKey: string, asPercent: boolean = false): st
 }
 .predefined-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  grid-template-columns: 100px repeat(4, 4fr);
   gap: 1rem;
 }
 </style>

@@ -208,6 +208,9 @@ export class Trade {
       @Column({ type: 'float' })
     S2_Previous_Resistance_Distance!: number;
 
+    @Column({type: 'float', default: 0})
+    S3_Reversal_Candle_Size!: number;
+
     // --- Range Breakout ---
     @Column()
     Closed_In_LTA!: boolean;

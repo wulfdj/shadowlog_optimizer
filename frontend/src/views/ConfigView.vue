@@ -109,7 +109,7 @@
           <v-card-actions>
             <v-btn v-if="isEditing" color="grey" @click="cancelEdit">Cancel Edit</v-btn>
             <v-spacer></v-spacer>
-            <v-btn color="primary" large @click="saveConfig" :loading="isSaving">
+            <v-btn color="primary" large @click="saveConfig" :loading="isSaving" variant="tonal">
               {{ isEditing ? 'Update Configuration' : 'Save New Configuration' }}
             </v-btn>
           </v-card-actions>
@@ -119,19 +119,19 @@
       <!-- Right Column: List of Saved Configurations -->
       <v-col cols="12" md="5">
         <h2>Saved Configurations</h2>
-        <v-list lines="two">
+        <v-list lines="one">
           <v-list-item
             v-for="config in savedConfigurations"
             :key="config.id"
             :title="config.name"
             :subtitle="`ID: ${config.id}`"
             :active="isEditing && formState.id === config.id"
+            v-on:click="startEdit(config)"
           >
             <template v-slot:append>
-              <v-switch v-model="config.highPriority" label="High Priority" style="padding-top:20px;"></v-switch>
-              <v-btn :icon="mdiPencil" variant="text" size="small" @click="startEdit(config)"></v-btn>
-              <v-btn :icon="mdiDelete" variant="text" size="small" color="red-lighten-1" @click="confirmDelete(config)"></v-btn>
-              <v-btn color="success" variant="tonal" @click="runOptimization(config.id, config.highPriority)" class="ml-2">Run</v-btn>
+              <v-checkbox v-model="config.highPriority" size="small" style="padding-top:20px;padding-right:10px;" label="All Cores"></v-checkbox>
+              <v-btn color="error" variant="tonal" size="small" @click="confirmDelete(config)">Delete</v-btn>
+              <v-btn color="success" variant="tonal" size="small" @click="runOptimization(config.id, config.highPriority)" class="ml-2">Run</v-btn>
               
             </template>
           </v-list-item>

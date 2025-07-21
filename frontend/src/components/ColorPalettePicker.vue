@@ -9,6 +9,7 @@
       :key="color"
       :value="color"
       filter
+      label
       class="color-picker-chip"
     >
       <!-- The icon is now responsible for displaying the color -->

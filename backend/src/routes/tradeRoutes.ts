@@ -38,6 +38,7 @@ function createTradeEntityFromRaw(raw: any, instrument: string, timeframe: strin
     trade.Entry_Distance = transformNumeric(raw.Entry_Distance);
     trade.S2_Previous_Support_Distance = transformNumeric(raw.S2_Previous_Support_Distance);
     trade.S2_Previous_Resistance_Distance = transformNumeric(raw.S2_Previous_Resistance_Distance);
+    trade.S3_Reversal_Candle_Size = transformNumeric(raw.S3_Reversal_Candle_Size);
 
     // Booleans
     trade.TP_1RR_PW_WIN = String(raw.TP_1RR_PW_WIN).toUpperCase() === 'TRUE';

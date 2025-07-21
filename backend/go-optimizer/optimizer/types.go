@@ -59,6 +59,7 @@ type Trade struct {
 	D1_Candle_Open                  bool    `db:"D1_Candle_Open"`
 	S2_Previous_Support_Distance    float64 `db:"S2_Previous_Support_Distance"`
 	S2_Previous_Resistance_Distance float64 `db:"S2_Previous_Resistance_Distance"`
+	S3_Reversal_Candle_Size         float64 `db:"S3_Reversal_Candle_Size"`
 }
 
 type Configuration struct {

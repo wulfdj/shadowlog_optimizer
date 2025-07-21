@@ -75,7 +75,13 @@ var SelectableCombinations = []map[string]interface{}{
 	{
 		"name": "S2 Pullback Distance Max",
 		"criterias": []interface{}{
-			map[string]interface{}{"columnHeader": "S2 Previous Support Distance|S2 Previous Resistance Distance", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 7.5, 10, 12.5, 15, 20, 25, nil}, "mode": "MAX"},
+			map[string]interface{}{"columnHeader": "S2_Previous_Support_Distance|S2_Previous_Resistance_Distance", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 7.5, 10, 12.5, 15, 20, 25, nil}, "mode": "MAX"},
+		},
+	},
+	{
+		"name": "S3 Reversal Candle Size Min Max",
+		"criterias": []interface{}{
+			map[string]interface{}{"columnHeader": "S3_Reversal_Candle_Size", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 8, 10, 15, 18, 25, 30, nil}, "mode": "PERMUTATION"},
 		},
 	},
 }

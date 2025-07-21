@@ -1,9 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from "typeorm";
 
 @Entity()
 export class Configuration {
     @PrimaryGeneratedColumn()
     id!: number;
+
+    @Index()
+    @Column({ type: 'varchar', length: 20 })
+    instrument!: string;
 
     @Column({ type: 'varchar', length: 255 })
     name!: string; // A user-friendly name for the configuration

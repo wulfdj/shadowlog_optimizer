@@ -15,6 +15,7 @@ const router = Router();
 router.get("/active", async (req, res) => {
     try {
         const activeJobs = await lowPriorityQueue.getActive();
+        const waitingJobs = await lowPriorityQueue.getWaiting();
         //const highPriorityActiveJobs = await highPriorityQueue.getActive();
         //const activeJobs = [...lowPriorityActiveJobs, ...highPriorityActiveJobs];
         
@@ -38,6 +39,7 @@ router.get("/active", async (req, res) => {
                 return {
                     id: job.id,
                     // Parse the progress, defaulting to the job's own progress if not found
+                    instrument: job.instrument,
                     progress: progress ? parseInt(progress, 10) : job.progress,
                     startedAt: job.timestamp,
                     configId: job.data.configId,
@@ -48,8 +50,21 @@ router.get("/active", async (req, res) => {
             })
         );
 
+         const waitingJobsToDisplay = waitingJobs.map(job => ({
+            id: job.id,
+            name: job.data.configurationName,
+            highPriority: job.data.highPriority,
+            queuedAt: job.timestamp,
+        }));
+        
+        // Sort waiting jobs by queue time
+        waitingJobsToDisplay.sort((a, b) => a.queuedAt - b.queuedAt);
 
-        res.json(jobsToDisplay);
+
+        res.json({
+            active: jobsToDisplay,
+            queued: waitingJobs
+        });
     } catch (error) {
         console.error("Failed to get active jobs:", error);
         res.status(500).json({ message: "Could not retrieve active jobs." });
@@ -66,33 +81,29 @@ router.post("/stop/:jobId", async (req, res) => {
         return res.status(400).json({ message: "Job ID is required." });
     }
 
-    const isHighPriorityJob = (await highPriorityQueue.getActive()).find(job => job.id == jobId)
+    const pidKey = `pid-for-job:${jobId}`;
+    const pidString = await redisClient.get(pidKey);
 
-    try {
-        let job;
-        if (isHighPriorityJob) {
-            job = await highPriorityQueue.getJob(jobId);
-        } else {
-            job = await lowPriorityQueue.getJob(jobId);
+    if (pidString) {
+        const pid = parseInt(pidString, 10);
+        console.log(`Found PID ${pid} for job ${jobId}. Sending SIGTERM...`);
+        try {
+            // This sends the termination signal to the process.
+            // 'SIGTERM' is a graceful shutdown signal.
+            process.kill(pid, 'SIGTERM');
+        } catch (e: any) {
+            // This can happen if the process has already died but the Redis key hasn't expired.
+            console.warn(`Could not kill PID ${pid}, it may have already exited:`, e.message);
         }
-        if (!job) {
-            return res.status(404).json({ message: "Job not found." });
-        }
-
-        // Check if the job is actually active before trying to stop it
-        if (await job.isActive()) {
-            // Moving to failed is the standard way to "stop" a job in BullMQ.
-            // It triggers the 'failed' event on the worker.
-            await job.moveToFailed({ message: "Job stopped by user." }, 'LIFO');
-            console.log(`Job ${jobId} stopped by user.`);
-            return res.status(200).json({ message: `Job ${jobId} has been stopped.` });
-        } else {
-            return res.status(409).json({ message: "Job is not currently active and cannot be stopped." });
-        }
-    } catch (error) {
-        console.error(`Failed to stop job ${jobId}:`, error);
-        res.status(500).json({ message: `Could not stop job ${jobId}.` });
+    } else {
+        console.warn(`Could not find PID for job ${jobId}. The job may be starting up.`);
     }
+
+    // We still set the stop flag as a reliable fallback mechanism.
+    const stopFlagKey = `stop-job:${jobId}`;
+    await redisClient.set(stopFlagKey, "1", "EX", 43200);
+
+    res.status(202).json({ message: `Stop signal sent to job ${jobId}.` });
 });
 
 
@@ -100,8 +111,9 @@ router.post("/stop/:jobId", async (req, res) => {
  * @route   POST /api/optimize/:configId
  * @desc    Starts a new optimization job for a given configuration
  */
-router.post("/:configId", async (req, res) => {
+router.post("/:instrument/:configId", async (req, res) => {
     const configId = parseInt(req.params.configId, 10);
+    const { instrument } = req.params;
     const { highPriority } = req.body;
 
     if (isNaN(configId)) {
@@ -120,6 +132,7 @@ router.post("/:configId", async (req, res) => {
         // --- Create the enriched data payload ---
         const jobData = {
             configId: config.id,
+            instrument: instrument,
             configurationName: config.name,
             maxCombinationsToTest: (config.settings as any)?.maxCombinationsToTest || 100000,
             highPriority: highPriority

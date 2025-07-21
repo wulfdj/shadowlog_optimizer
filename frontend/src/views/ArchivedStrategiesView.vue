@@ -1,53 +1,48 @@
 <template>
   <v-container>
-    <v-row>
+      <v-row align="center" class="mb-4">
       <v-col>
-        <h1>Archived Strategies</h1>
-        <p>A hand-picked list of your best-performing, long-term strategies with full context.</p>
+        <h1 class="text-h5 font-weight-bold">Archived Strategies</h1>
+        <p class="text-secondary">Your hand-picked list of best-performing strategies.</p>
       </v-col>
-
-      <v-menu offset-y>
+      <v-col class="text-right d-flex align-center justify-end">
+        <!-- Sort Controls -->
+        <v-menu offset-y>
           <template v-slot:activator="{ props }">
-            <v-btn v-bind="props" class="mr-4">
-              <v-icon left>mdi-sort</v-icon>
+            <v-btn v-bind="props" variant="outlined">
+              <v-icon :icon="mdiSortVariant" left></v-icon>
               Sort By: {{ activeSort.title }}
             </v-btn>
           </template>
           <v-list>
-            <v-list-item
-              v-for="(item, index) in sortOptions"
-              :key="index"
-              @click="setActiveSort(item)"
-            >
+            <v-list-item v-for="item in sortOptions" :key="item.key" @click="setActiveSort(item)">
               <v-list-item-title>{{ item.title }}</v-list-item-title>
             </v-list-item>
           </v-list>
         </v-menu>
 
-         <v-btn-toggle v-model="viewMode" variant="outlined" divided class="ml-4">
-          <v-btn value="grid"><v-icon :icon="mdiViewGrid"></v-icon></v-btn>
-          <v-btn value="list"><v-icon :icon="mdiViewList"></v-icon></v-btn>
+        <!-- View Mode Toggle -->
+        <v-btn-toggle style="height:38px" v-model="viewMode" variant="outlined" divided class="ml-4">
+          <v-btn value="grid"><v-icon :icon="mdiViewGridOutline"></v-icon></v-btn>
+          <v-btn  value="list"><v-icon :icon="mdiViewListOutline"></v-icon></v-btn>
         </v-btn-toggle>
 
-      <v-col class="text-right">
-        <v-btn color="secondary" @click="importDialog.show = true">
-          Import from CSV
+        <v-btn color="primary" @click="importDialog.show = true" class="ml-4">
+          <v-icon :icon="mdiImport" left></v-icon>
+          Import
         </v-btn>
       </v-col>
     </v-row>
+    
+    <div v-if="sortedResults.length === 0">
+        <v-alert type="info">No archived strategies have been saved yet.</v-alert>
+    </div>
 
-    <v-row v-if="sortedResults.length === 0">
-      <v-col>
-        <v-alert type="info">No archived strategies yet. Go to the Results page and save one to get started.</v-alert>
-      </v-col>
-    </v-row>
-
-    <!-- Detailed Strategy Cards -->
     <v-row v-else>
       <v-col
         v-for="item in sortedResults"
         :key="item.id"
-        :cols="viewMode === 'grid' ? 12 : 12"
+        :cols="12"
         :md="viewMode === 'grid' ? 6 : 12"
       >
         <ArchivedStrategyCard
@@ -152,11 +147,21 @@
 <script setup lang="ts">
 import ColorPalettePicker from '@/components/ColorPalettePicker.vue'
 import ArchivedStrategyCard from '@/components/ArchivedStrategyCard.vue';
-import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline, mdiPencil, mdiViewGrid, mdiViewList } from '@mdi/js';
+import { mdiStar, mdiDeleteOutline, mdiTagMultipleOutline, mdiPencil, mdiViewGrid, mdiViewList, mdiImport, mdiSortVariant, mdiViewGridOutline, mdiViewListOutline } from '@mdi/js';
 import { ref, onMounted, reactive, computed, watch } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useRouter } from 'vue-router';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
+watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
+    // 2. Call the main data fetching function for this view
+    fetchArchived(newInstrument);
+});
+
 const viewMode = ref<'grid' | 'list'>('grid'); // Default to grid
 watch(viewMode, (newValue) => {
     localStorage.setItem('archiveViewMode', newValue);
@@ -205,9 +210,9 @@ const sortedResults = computed(() => {
     }
     return results;
 });
-async function fetchArchived() {
+async function fetchArchived(instrument: string) {
     try {
-        const response = await api.getArchivedResults();
+        const response = await api.getArchivedResults(instrument);
         allArchivedResults.value = response.data;
         console.log("Archived result: ", archivedResults.value);
     } catch (error) {
@@ -494,7 +499,7 @@ const handleImport = async () => {
     await api.importArchivedResult(parsedData);
     console.log("imported data:", parsedData);
     showSnackbar("Strategy imported successfully!", "success");
-    await fetchArchived(); // Refresh the list
+    await fetchArchived(instrumentStore.selectedInstrument); // Refresh the list
     importDialog.show = false;
     importDialog.importString = '';
   } catch (error: any) {
@@ -511,7 +516,7 @@ onMounted(() => {
     if (savedMode === 'list' || savedMode === 'grid') {
         viewMode.value = savedMode;
     }
-    fetchArchived();
+    fetchArchived(instrumentStore.selectedInstrument);
     fetchTags();
 });
 </script>

@@ -58,6 +58,40 @@
     <v-divider class="my-8"></v-divider>
 </template>
 
+<template v-if="queuedJobs.length > 0">
+        <v-row>
+          <v-col>
+            <h2 class="text-h5 mb-2 text-amber">Queued</h2>
+          </v-col>
+        </v-row>
+        <v-row>
+            <v-col v-for="(job, index) in queuedJobs" :key="job.id" cols="12" md="6">
+                <v-card border variant="tonal">
+                  <v-card-text>
+                    <div class="d-flex justify-space-between align-center">
+                      <div>
+                        <div class="font-weight-medium">#{{ index + 1 }} in Queue: {{ job.data.configurationName }}</div>
+                        <div class="font-weight-medium">Instrument: {{ job.data.instrument }}</div>
+                        <v-chip
+                          :color="job.highPriority ? 'blue' : 'grey'"
+                          size="x-small"
+                          class="mt-1"
+                          label
+                        >
+                          {{ job.highPriority ? 'High Priority' : 'Low Priority' }}
+                        </v-chip>
+                      </div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
+    </template>
+
+    <!-- Divider should only show if there are active or queued jobs -->
+    <v-divider class="my-8" v-if="activeJobs.length > 0 || queuedJobs.length > 0"></v-divider>
+
+
     <!-- Section 1: Latest Optimization Runs -->
     <v-row>
       <v-col>
@@ -133,15 +167,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive } from 'vue';
+import { ref, onMounted, onUnmounted, reactive, watch } from 'vue';
 import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useRouter } from 'vue-router';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+const instrumentStore = useInstrumentStore();
+
+watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
+    // 2. Call the main data fetching function for this view
+    fetchData(newInstrument);
+});
 
 // --- State ---
 const latestRuns = ref<any[]>([]);
 const archivedStrategies = ref<any[]>([]);
 const activeJobs = ref<any[]>([]); // New state for in-progress jobs
+const queuedJobs = ref<any[]>([]);
 let pollingInterval: any; // To hold the interval ID
 
 const loading = reactive({
@@ -239,7 +282,9 @@ async function stopOptimizationJob(jobId: string | number) {
 async function pollActiveJobs() {
   try {
     const response = await api.getActiveJobs();
-    activeJobs.value = response.data;
+    activeJobs.value = response.data.active;
+    queuedJobs.value = response.data.queued;
+
   } catch (error) {
     console.error("Polling for active jobs failed:", error);
     // Stop polling if there's an error to prevent spamming
@@ -247,14 +292,15 @@ async function pollActiveJobs() {
   }
 }
 
-async function fetchData() {
+async function fetchData(instrument: string) {
   // Fetch latest runs (History)
   loading.history = true;
   try {
-    const historyResponse = await api.getResultList();
+    const historyResponse = await api.getResultList(instrument);
+    console.log("historyResponse", historyResponse.data);
     // We need to fetch details for each to get the best result
     const detailedRuns = await Promise.all(
-        historyResponse.data.slice(0, 3).map((run: any) => api.getResultDetails(run.id))
+        historyResponse.data.slice(0, 3).map((run: any) => api.getResultDetails(instrument, run.id))
     );
     latestRuns.value = detailedRuns.map(res => {
         const data = res.data;
@@ -275,7 +321,7 @@ async function fetchData() {
   // Fetch archived strategies
   loading.archive = true;
   try {
-    const archiveResponse = await api.getArchivedResults();
+    const archiveResponse = await api.getArchivedResults(instrument);
     // Also take the top 3 for the dashboard
     archivedStrategies.value = archiveResponse.data.slice(0, 3);
     console.log("archived strategies: ", archiveResponse.data);
@@ -288,7 +334,8 @@ async function fetchData() {
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
-  fetchData(); // Fetch initial data for completed/archived
+  console.log("Fetch for instrument: " + instrumentStore.selectedInstrument);
+  fetchData(instrumentStore.selectedInstrument); // Fetch initial data for completed/archived
   
   // Start polling for active jobs immediately and then every 3 seconds
   pollActiveJobs();

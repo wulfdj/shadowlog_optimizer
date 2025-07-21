@@ -16,6 +16,10 @@ export class Trade {
     @PrimaryGeneratedColumn()
     id!: number;
 
+    @Index()
+    @Column({ type: 'varchar', length: 20 })
+    instrument!: string; // e.g., 'DAX', 'US30'
+
     @Index() // Add a database index for faster lookups
     @Column({ type: 'varchar', length: 10 })
     timeframe!: string; // e.g., '5M', '15M', '1H'

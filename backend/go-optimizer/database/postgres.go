@@ -40,7 +40,7 @@ func (db *DB) FetchConfiguration(configID int) (optimizer.Configuration, error) 
 }
 
 // FetchAllTrades retrieves all trades for a given timeframe from the database.
-func (db *DB) FetchAllTrades(timeframe string) ([]optimizer.Trade, error) {
+func (db *DB) FetchAllTrades(instrument string, timeframe string) ([]optimizer.Trade, error) {
 	query := `
 	SELECT 
 		"Time", "Setup", "Direction", "Entered", "Canceled_After_Candles", "Breakout_Candle_Count", "Candle_Size",
@@ -54,8 +54,8 @@ func (db *DB) FetchAllTrades(timeframe string) ([]optimizer.Trade, error) {
 		"H1_Candle", "H4_Candle", "D1_Candle", "M10_Candle_Open", "M15_Candle_Open", "M30_Candle_Open",
 		"H1_Candle_Open", "H4_Candle_Open", "D1_Candle_Open"
 	FROM trade 
-	WHERE timeframe=$1`
-	rows, err := db.Pool.Query(context.Background(), query, timeframe)
+	WHERE timeframe=$1 AND instrument=$2`
+	rows, err := db.Pool.Query(context.Background(), query, timeframe, instrument)
 	if err != nil {
 		return nil, fmt.Errorf("error querying trades: %w", err)
 	}

@@ -9,11 +9,12 @@ const router = Router();
  * A helper function to map raw CSV row data to a proper Trade entity instance,
  * applying all necessary type conversions.
  */
-function createTradeEntityFromRaw(raw: any, timeframe: string): Trade {
+function createTradeEntityFromRaw(raw: any, timeframe: string, instrument: string): Trade {
     const trade = new Trade();
 
     // Map and transform each property
     trade.timeframe = timeframe;
+    trade.instrument = instrument;
     trade.Date = raw.Date;
     trade.Time = raw.Time;
     trade.EU_OFFS = parseInt(raw.EU_OFFS, 10) || 0;
@@ -92,11 +93,13 @@ function createTradeEntityFromRaw(raw: any, timeframe: string): Trade {
  * @route   GET /api/trades/timeframes
  * @desc    Get a list of unique, distinct timeframes stored in the database.
  */
-router.get("/timeframes", async (req, res) => {
+router.get("/:instrument/timeframes", async (req, res) => {
+    const {instrument} = req.params;
     try {
         const result = await AppDataSource.getRepository(Trade)
             .createQueryBuilder("trade")
             .select("DISTINCT trade.timeframe", "timeframe")
+            .where("trade.instrument = :instrument", {instrument})
             .getRawMany();
         
         const timeframes = result.map(item => item.timeframe);
@@ -112,12 +115,12 @@ router.get("/timeframes", async (req, res) => {
  * @route   GET /api/trades/:timeframe
  * @desc    Get all trade records for a SPECIFIC timeframe.
  */
-router.get("/:timeframe", async (req, res) => {
-    const { timeframe } = req.params;
+router.get("/:instrument/:timeframe", async (req, res) => {
+    const { instrument, timeframe } = req.params;
     const tradeRepository = AppDataSource.getRepository(Trade);
     try {
         const trades = await tradeRepository.find({
-            where: { timeframe: timeframe }, // Filter by the timeframe
+            where: { timeframe: timeframe, instrument: instrument }, // Filter by the timeframe
             order: { Date: "ASC", Time: "ASC" }
         });
         res.json(trades);
@@ -132,8 +135,8 @@ router.get("/:timeframe", async (req, res) => {
  * @route   POST /api/trades/upload/:timeframe
  * @desc    Upload trades for a SPECIFIC timeframe, handling large files with chunking.
  */
-router.post("/upload/:timeframe", async (req, res) => {
-    const { timeframe } = req.params;
+router.post("/upload/:instrument/:timeframe", async (req, res) => {
+    const { instrument, timeframe } = req.params;
     const rawTrades = req.body;
 
     if (!timeframe) {
@@ -146,7 +149,7 @@ router.post("/upload/:timeframe", async (req, res) => {
     console.log(`Starting upload for timeframe: ${timeframe}`);
 
     // Transform raw data into entities, now including the timeframe
-    const tradeEntities = rawTrades.map(raw => createTradeEntityFromRaw(raw, timeframe));
+    const tradeEntities = rawTrades.map(raw => createTradeEntityFromRaw(raw, instrument, timeframe));
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();

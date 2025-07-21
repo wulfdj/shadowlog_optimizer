@@ -8,7 +8,8 @@ const router = Router();
  * @route   POST /api/configurations
  * @desc    Save a new optimization configuration
  */
-router.post("/", async (req, res) => {
+router.post("/:instrument", async (req, res) => {
+    const { instrument } =  req.params;
     const { name, settings } = req.body;
 
     if (!name || !settings) {
@@ -16,7 +17,7 @@ router.post("/", async (req, res) => {
     }
 
     const configRepository = AppDataSource.getRepository(Configuration);
-    const newConfig = configRepository.create({ name, settings });
+    const newConfig = configRepository.create({ instrument, name, settings });
 
     try {
         await configRepository.save(newConfig);
@@ -31,10 +32,12 @@ router.post("/", async (req, res) => {
  * @route   GET /api/configurations
  * @desc    Get all saved configurations
  */
-router.get("/", async (req, res) => {
+router.get("/:instrument", async (req, res) => {
+    const { instrument } = req.params;
     const configRepository = AppDataSource.getRepository(Configuration);
     try {
         const configurations = await configRepository.find({
+            where: {instrument },
             order: { createdAt: "DESC" }
         });
         res.json(configurations);
@@ -50,6 +53,7 @@ router.get("/", async (req, res) => {
  */
 router.put("/:id", async (req, res) => {
     const configId = parseInt(req.params.id, 10);
+
     const { name, settings } = req.body;
 
     if (isNaN(configId)) {

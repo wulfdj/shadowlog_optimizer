@@ -25,7 +25,7 @@ func main() {
 	}()
 
 	// --- 1. System and Environment Setup ---
-	configID, jobID, numWorkers := parseArgsAndSetup()
+	instrument, configID, jobID, numWorkers := parseArgsAndSetup()
 	dbURL, redisURL := getEnvVars()
 
 	// --- 2. Initial Data Loading ---
@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		debugLog.Fatalf("Failed to fetch configuration: %v", err)
 	}
-	allTrades, err := db.FetchAllTrades(config.Settings["dataSheetName"].(string))
+	allTrades, err := db.FetchAllTrades(instrument, config.Settings["dataSheetName"].(string))
 	if err != nil {
 		debugLog.Fatalf("Failed to fetch trades: %v", err)
 	}
@@ -155,19 +155,25 @@ func main() {
 
 // --- Main Helper Functions ---
 
-func parseArgsAndSetup() (configID int, jobID string, numWorkers int) {
-	if len(os.Args) < 3 {
-		log.Fatal("Usage: ./optimizer <configID> <jobId> [priority]")
+func parseArgsAndSetup() (instrument string, configID int, jobID string, numWorkers int) {
+	if len(os.Args) < 4 {
+		log.Fatal("Usage: ./optimizer <instrument> <configID> <jobId> [priority]")
 	}
 	var err error
-	configID, err = strconv.Atoi(os.Args[1])
+	configID, err = strconv.Atoi(os.Args[2])
 	if err != nil {
-		log.Fatalf("Invalid Config ID: %s", os.Args[1])
+		log.Fatalf("Invalid Config ID: %s", os.Args[2])
 	}
-	jobID = os.Args[2]
+
+	instrument = os.Args[1]
+	if instrument == "" {
+		log.Fatalf("No instrument given")
+	}
+
+	jobID = os.Args[3]
 
 	numWorkers = runtime.NumCPU() / 2
-	if len(os.Args) > 3 && os.Args[3] == "high" {
+	if len(os.Args) > 4 && os.Args[4] == "high" {
 		numWorkers = runtime.NumCPU()
 	}
 	if numWorkers < 1 {

@@ -8,7 +8,8 @@ const router = Router();
  * @route   GET /api/results
  * @desc    Get a list of all completed optimization runs for the history page.
  */
-router.get("/", async (req, res) => {
+router.get("/:instrument", async (req, res) => {
+    const { instrument} = req.params;
     const resultRepo = AppDataSource.getRepository(OptimizationResult);
     try {
         const results = await resultRepo.find({
@@ -27,7 +28,8 @@ router.get("/", async (req, res) => {
                     name: true,
                     settings: true,
                 }
-            }
+            },
+            where: { instrument }
         });
         res.json(results);
     } catch (error) {
@@ -40,8 +42,9 @@ router.get("/", async (req, res) => {
  * @route   GET /api/results/:id
  * @desc    Get the full details for a single optimization run, including the results blob.
  */
-router.get("/:id", async (req, res) => {
+router.get("/:instrument/:id", async (req, res) => {
     const resultId = parseInt(req.params.id, 10);
+    const {instrument} = req.params;
     if (isNaN(resultId)) {
         return res.status(400).json({ message: "Invalid Result ID." });
     }
@@ -51,7 +54,7 @@ router.get("/:id", async (req, res) => {
         // --- THE CORE FIX IS HERE ---
         // We replace `findOneBy` with `findOne` and explicitly load the relation.
         const result = await resultRepo.findOne({
-            where: { id: resultId },
+            where: { id: resultId, instrument: instrument },
             relations: {
                 configuration: true,
             },
@@ -71,7 +74,7 @@ router.get("/:id", async (req, res) => {
  * @route   DELETE /api/results/:id
  * @desc    Delete a specific optimization result run from the history.
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:instrument/:id", async (req, res) => {
     const resultId = parseInt(req.params.id, 10);
     if (isNaN(resultId)) {
         return res.status(400).json({ message: "Invalid Result ID." });

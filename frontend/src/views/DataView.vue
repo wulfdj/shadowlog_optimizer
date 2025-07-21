@@ -54,9 +54,18 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue';
 import { AgGridVue } from "ag-grid-vue3";
-import { type GridApi, type GridReadyEvent, type ColDef, ModuleRegistry, AllCommunityModule, themeBalham, colorSchemeDarkBlue } from "ag-grid-community";
+import { type GridApi, type GridReadyEvent, type ColDef, ModuleRegistry, AllCommunityModule, themeBalham, colorSchemeDarkBlue, colorSchemeLight } from "ag-grid-community";
+import { useInstrumentStore } from '@/stores/instrumentStore';
 
-const myTheme = themeBalham.withPart(colorSchemeDarkBlue);
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
+watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
+    // 2. Call the main data fetching function for this view
+    fetchTimeframes(newInstrument);
+});
+
+const myTheme = themeBalham.withPart(colorSchemeLight);
 
 import Papa from 'papaparse';
 import api from '@/services/api';
@@ -96,9 +105,9 @@ const closeImportDialog = () => {
   importDialog.isUploading = false;
 };
 
-const fetchTimeframes = async () => {
+const fetchTimeframes = async (instrument: string) => {
   try {
-    const response = await api.getAvailableTimeframes();
+    const response = await api.getAvailableTimeframes(instrument);
     availableTimeframes.value = response.data;
     if (response.data.length > 0 && !selectedTimeframe.value) {
       selectedTimeframe.value = response.data[0];
@@ -108,14 +117,14 @@ const fetchTimeframes = async () => {
   }
 };
 
-const fetchTradesForGrid = async (timeframe: string | null) => {
+const fetchTradesForGrid = async (instrument: string, timeframe: string | null) => {
   if (!timeframe || !gridApi.value) {
     gridApi.value?.showNoRowsOverlay();
     return;
   }
   gridApi.value.showLoadingOverlay();
   try {
-    const response = await api.getTradesByTimeframe(timeframe);
+    const response = await api.getTradesByTimeframe(instrument, timeframe);
     gridApi.value.setGridOption("rowData", response.data);
   } catch (error) {
     console.error(`Failed to fetch trades for ${timeframe}:`, error);
@@ -151,11 +160,11 @@ const handleFileUpload = () => {
       });
 
       try {
-        await api.uploadTrades(transformedData, importDialog.timeframe!);
+        await api.uploadTrades(instrumentStore.selectedInstrument, transformedData, importDialog.timeframe!);
         showSnackbar(`Successfully uploaded data for ${importDialog.timeframe}.`, 'success');
         closeImportDialog();
         // Refresh the list of available timeframes and switch to the new one
-        await fetchTimeframes();
+        await fetchTimeframes(instrumentStore.selectedInstrument);
         selectedTimeframe.value = importDialog.timeframe;
       } catch (error: any) {
         showSnackbar(error.response?.data?.message || 'Upload failed!', 'error');
@@ -172,10 +181,12 @@ const handleFileUpload = () => {
 
 // Watch for changes on the selected tab and reload the grid data
 watch(selectedTimeframe, (newTimeframe) => {
-  fetchTradesForGrid(newTimeframe);
+  fetchTradesForGrid(instrumentStore.selectedInstrument, newTimeframe);
 });
 
-onMounted(fetchTimeframes);
+onMounted(() => {
+  fetchTimeframes(instrumentStore.selectedInstrument);
+});
 
 const defaultColDef = ref({ sortable: true, filter: true, resizable: true });
 const columnDefs = ref<ColDef[]>([

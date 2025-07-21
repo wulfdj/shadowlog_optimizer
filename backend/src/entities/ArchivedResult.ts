@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, ManyToMany, JoinTable } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, ManyToMany, JoinTable, Index } from "typeorm";
 import { Configuration } from "./Configuration";
 import { Tag } from "./Tag";
 
@@ -6,6 +6,10 @@ import { Tag } from "./Tag";
 export class ArchivedResult {
     @PrimaryGeneratedColumn()
     id!: number;
+
+    @Index()
+    @Column({ type: 'varchar', length: 20 })
+    instrument!: string;
 
     @Column({ type: 'text', nullable: true })
     notes?: string; // Optional user notes about why this strategy is good

@@ -147,10 +147,17 @@
 
 <script setup lang="ts">
 import { mdiPencil, mdiDelete } from '@mdi/js';
-
-
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import api from '@/services/api';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
+watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
+    // 2. Call the main data fetching function for this view
+    fetchConfigurations(newInstrument);
+});
 
 // --- Types and Interfaces ---
 interface Configuration {
@@ -232,9 +239,9 @@ const showSnackbar = (message: string, color: string = 'success') => {
   snackbar.show = true;
 };
 
-const fetchConfigurations = async () => {
+const fetchConfigurations = async (intrument: string) => {
   try {
-    const response = await api.getConfigurations();
+    const response = await api.getConfigurations(intrument);
     savedConfigurations.value = response.data.map((c: any) => ({...c, highPriority:false}));
   } catch (error) {
     console.error(error);
@@ -332,7 +339,7 @@ const confirmDelete = async (configToDelete: any) => {
         try {
             await api.deleteConfiguration(configToDelete.id);
             showSnackbar("Configuration deleted successfully.", "success");
-            await fetchConfigurations(); // Refresh the list
+            await fetchConfigurations(instrumentStore.selectedInstrument); // Refresh the list
         } catch (error) {
             showSnackbar("Failed to delete configuration.", "error");
         }
@@ -358,11 +365,11 @@ const saveConfig = async () => {
       showSnackbar("Configuration updated successfully!", "success");
     } else {
       // CREATE new config
-      await api.saveConfiguration(payload);
+      await api.saveConfiguration(instrumentStore.selectedInstrument, payload);
       showSnackbar("Configuration saved successfully!", "success");
     }
     cancelEdit(); // Reset form after successful save/update
-    await fetchConfigurations(); // Refresh the list
+    await fetchConfigurations(instrumentStore.selectedInstrument); // Refresh the list
   } catch (error: any) {
     showSnackbar(error.response?.data?.message || "Failed to save configuration.", "error");
   } finally {
@@ -373,7 +380,7 @@ const saveConfig = async () => {
 const runOptimization = async (configId: number, highPriority: boolean) => {
   showSnackbar(`Queuing optimization job for config ID: ${configId}`, "info");
   try {
-    await api.runOptimization(configId, highPriority);
+    await api.runOptimization(instrumentStore.selectedInstrument, configId, highPriority);
     showSnackbar("Job successfully queued! The worker will now process it.", "success");
   } catch (error: any) {
     showSnackbar(error.response?.data?.message || "Failed to queue job.", "error");
@@ -385,5 +392,7 @@ const rules = {
   }
 
 // --- Lifecycle Hooks ---
-onMounted(fetchConfigurations);
+onMounted(() => {
+  fetchConfigurations(instrumentStore.selectedInstrument);
+});
 </script>

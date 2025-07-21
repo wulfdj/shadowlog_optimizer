@@ -11,8 +11,9 @@ const router = Router();
  * @route   POST /api/archive
  * @desc    Archive a specific result combination, linking it to its parent configuration.
  */
-router.post("/", async (req, res) => {
+router.post("/:instrument", async (req, res) => {
     // We now expect the IDs and the specific result data
+    const { instrument} = req.params;
     const { configurationId, resultData, strategyName } = req.body;
 
     if (!configurationId || !resultData || !strategyName) {
@@ -31,6 +32,7 @@ router.post("/", async (req, res) => {
 
         // Create the new entity, providing the full Configuration object for the relation
         const newArchivedResult = archiveRepo.create({
+            instrument: instrument,
             configuration: parentConfig,
             resultData: resultData,
             strategyName: strategyName,
@@ -49,7 +51,7 @@ router.post("/", async (req, res) => {
  * @route   GET /api/archive
  * @desc    Get all archived (hand-picked) strategies.
  */
-router.get("/", async (req, res) => {
+router.get("/:instrument", async (req, res) => {
     const archiveRepo = AppDataSource.getRepository(ArchivedResult);
     try {
         const archivedResults = await archiveRepo.find({
@@ -94,7 +96,8 @@ router.delete("/:id", async (req, res) => {
  * @desc    Import a strategy from a formatted string. This will find or create a
  *          matching configuration and then create a new archived result linked to it.
  */
-router.post("/import", async (req, res) => {
+router.post("/:instrument/import", async (req, res) => {
+    const { instrument } = req.params;
     const { parsedData } = req.body;
 
     if (!parsedData || !parsedData.configurationName || !parsedData.settings || !parsedData.resultData) {
@@ -125,6 +128,7 @@ router.post("/import", async (req, res) => {
         if (!configuration) {
             console.log(`No matching configuration found for "${parsedData.configurationName}". Creating a new one.`);
             const newConfig = transactionalEntityManager.create(Configuration, {
+                instrument: instrument,
                 name: parsedData.configurationName,
                 settings: parsedData.settings,
             });
@@ -137,6 +141,7 @@ router.post("/import", async (req, res) => {
         // Step 3: Create the new ArchivedResult, linking it to the found or new configuration.
         const newArchivedResult = transactionalEntityManager.create(ArchivedResult, {
             configuration: configuration,
+            instrument: instrument,
             strategyName: parsedData.resultData.strategyName,
             resultData: parsedData.resultData.metrics, // Store the relevant metrics part
         });

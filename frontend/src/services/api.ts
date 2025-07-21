@@ -9,20 +9,20 @@ const apiClient = axios.create({
 });
 
 export default {
-    uploadTrades(trades: any[], timeframe: string) {
-        return apiClient.post(`/trades/upload/${timeframe}`, trades);
+    uploadTrades(instrument: string, trades: any[], timeframe: string) {
+        return apiClient.post(`/trades/${instrument}/upload/${timeframe}`, trades);
     },
-    getTradesByTimeframe(timeframe: string) {
-        return apiClient.get(`/trades/${timeframe}`);
+    getTradesByTimeframe(instrument: string, timeframe: string) {
+        return apiClient.get(`/trades/${instrument}/${timeframe}`);
     },
-    getAvailableTimeframes() {
-        return apiClient.get('/trades/timeframes');
+    getAvailableTimeframes(instrument: string) {
+        return apiClient.get(`/trades/${instrument}/timeframes`);
     },
-    getConfigurations() {
-        return apiClient.get('/configurations');
+    getConfigurations(instrument: string) {
+        return apiClient.get(`/configurations/${instrument}`);
     },
-    saveConfiguration(config: { name: string, settings: object }) {
-        return apiClient.post('/configurations', config);
+    saveConfiguration(instrument: string, config: { name: string, settings: object }) {
+        return apiClient.post(`/configurations/${instrument}`, config);
     },
     // --- NEW METHODS ---
     updateConfiguration(id: number, config: { name: string, settings: object }) {
@@ -31,20 +31,20 @@ export default {
     deleteConfiguration(id: number) {
         return apiClient.delete(`/configurations/${id}`);
     },
-    runOptimization(configId: number, highPriority: boolean) {
-        return apiClient.post(`/optimize/${configId}`, { highPriority });
+    runOptimization(instrument: string, configId: number, highPriority: boolean) {
+        return apiClient.post(`/optimize/${instrument}/${configId}`, { highPriority });
     },
-    getResultList() {
-        return apiClient.get('/results');
+    getResultList(instrument: string) {
+        return apiClient.get(`/results/${instrument}`);
     },
-    getResultDetails(resultId: number) {
-        return apiClient.get(`/results/${resultId}`);
+    getResultDetails(instrument: string, resultId: number) {
+        return apiClient.get(`/results/${instrument}/${resultId}`);
     },
     deleteResult(resultId: number) {
         return apiClient.delete(`/results/${resultId}`);
     },
-    getArchivedResults() {
-        return apiClient.get('/archive');
+    getArchivedResults(instrument: string) {
+        return apiClient.get(`/archive/${instrument}`);
     },
     saveToArchive(payload: { configurationId: number, resultData: object, strategyName: string }) {
         console.log("saveToArchive: ", payload);
@@ -60,7 +60,7 @@ export default {
     getActiveJobs() {
         return apiClient.get('/optimize/active');
     },
-     stopJob(jobId: string | number) {
+    stopJob(jobId: string | number) {
         return apiClient.post(`/optimize/stop/${jobId}`);
     },
     getTags() {

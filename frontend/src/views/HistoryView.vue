@@ -126,13 +126,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, watch } from 'vue';
 import api from '@/services/api';
 import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
 import { getTopResultsByStrategy } from '@/utils/resultProcessor';
 import { mdiDeleteOutline } from '@mdi/js';
-import { time } from 'console';
+import { useInstrumentStore } from '@/stores/instrumentStore';
+
+// Create an instance of the store to make its state available to the template.
+const instrumentStore = useInstrumentStore();
+
+watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
+    // 2. Call the main data fetching function for this view
+    fetchHistoryList(newInstrument);
+});
 
 // --- State Definitions ---
 interface HistoryRun {
@@ -177,7 +185,7 @@ const handlePanelChange = async (val: unknown) => {
   }
   try {
     loadingDetails.value.add(panelId);
-    const response = await api.getResultDetails(panelId);
+    const response = await api.getResultDetails(instrumentStore.selectedInstrument, panelId);
     const data = response.data;
     if (typeof data.results === 'string') {
         data.results = JSON.parse(data.results);
@@ -217,9 +225,9 @@ const applyAndGo = (resultItem: any, configuration: any) => {
   filterStore.setFiltersAndNavigate(resultItem, configuration, router);
 };
 
-const fetchHistoryList = async () => {
+const fetchHistoryList = async (instrument: string) => {
   try {
-    const response = await api.getResultList();
+    const response = await api.getResultList(instrument);
     history.value = response.data;
   } catch (error) {
     console.error("Failed to fetch history:", error);
@@ -301,7 +309,9 @@ async function confirmDelete(runToDelete: HistoryRun) {
     }
 }
 
-onMounted(fetchHistoryList);
+onMounted(() => {
+  fetchHistoryList(instrumentStore.selectedInstrument);
+});
 </script>
 
 <style scoped>

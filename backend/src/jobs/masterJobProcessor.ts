@@ -4,11 +4,23 @@ import { Configuration } from '../entities/Configuration';
 import { OptimizationResult } from '../entities/OptimizationResult';
 import { spawn } from 'child_process';
 import path from 'path';
+import IORedis from 'ioredis';
+import { redisConnection } from './redisConnection';
+
+const redisClient = new IORedis(redisConnection);
 
 // A robust function to execute the child process and capture all output
-function executeGoProcess(executablePath: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+async function executeGoProcess(job: Job, executablePath: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
     return new Promise((resolve) => {
+        const pidKey = `pid-for-job:${job.id!}`;
+        const stopFlagKey = `stop-job:${job.id!}`;
         const process = spawn(executablePath, args);
+        const pid = process.pid;
+        if (!pid) {
+            throw new Error("Failed to get PID from spawned process.");
+        }
+        console.log(`Go process spawned with PID: ${pid} for Job ${job.id}`);
+        redisClient.set(pidKey, pid, "EX", 18000); // 2 hour expiration
         let stdout = '';
         let stderr = '';
 
@@ -42,7 +54,7 @@ export default async function(job: Job): Promise<any> {
     const startTime = new Date();
     console.log(`--- NODE ORCHESTRATOR FOR JOB ${job.id} STARTED ---`);
 
-    const { configId } = job.data;
+    const { configId, instrument } = job.data;
     
     try {
         if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -51,6 +63,7 @@ export default async function(job: Job): Promise<any> {
         
         const config = await configRepo.findOneBy({ id: configId });
         if (!config) throw new Error("Configuration not found.");
+        const stopFlagKey = `stop-job:${job.id!}`;
 
         // --- DEBUGGING STEP 1: Verify environment variables in Node.js context ---
         console.log(`Verifying environment...`);
@@ -65,12 +78,12 @@ export default async function(job: Job): Promise<any> {
 
         // --- Step 2: Prepare and Execute Go Process ---
         const goExecutablePath = path.join(process.cwd(), 'go-optimizer', 'go-optimizer');
-        const goArgs = [String(configId), String(job.id!)];
+        const goArgs = [instrument, String(configId), String(job.id!)];
         
         console.log(`Executing Go optimizer: ${goExecutablePath} ${goArgs.join(' ')}`);
         
         // The Go process inherits env vars from this Node.js process
-        const { code, stdout, stderr } = await executeGoProcess(goExecutablePath, goArgs);
+        const { code, stdout, stderr } = await executeGoProcess(job, goExecutablePath, goArgs);
 
         if (code !== 0) {
             // --- CORE FIX: Include the detailed stderr in the thrown error ---
@@ -82,6 +95,7 @@ export default async function(job: Job): Promise<any> {
 
         // Step 3: Save the final result
         const newResult = resultRepo.create({
+            instrument: instrument,
             configuration: config,
             results: finalResults,
             startedAt: startTime,

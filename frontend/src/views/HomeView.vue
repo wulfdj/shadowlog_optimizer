@@ -62,7 +62,7 @@
           </v-col>
         </v-row>
         <v-row>
-            <v-col v-for="(job, index) in queuedJobs" :key="job.id" cols="12" md="6">
+            <v-col v-for="(job, index) in queuedJobs" :key="job.id" cols="12" md="4">
                 <v-card border variant="tonal">
                   <v-card-text>
                     <div class="d-flex justify-space-between align-center">
@@ -78,6 +78,17 @@
                           {{ job.highPriority ? 'High Priority' : 'Low Priority' }}
                         </v-chip>
                       </div>
+                       <v-spacer></v-spacer>
+                      <!-- NEW REMOVE BUTTON -->
+                      <v-btn
+                        color="error"
+                        variant="tonal"
+                        size="small"
+                        @click="removeJobFromQueue(job.id)"
+                        :loading="removingJobs.has(job.id)"
+                      >
+                        Remove
+                      </v-btn>
                     </div>
                   </v-card-text>
                 </v-card>
@@ -172,6 +183,26 @@ watch(() => instrumentStore.selectedInstrument, (newInstrument) => {
     // 2. Call the main data fetching function for this view
     fetchData(newInstrument);
 });
+
+const removingJobs = ref(new Set<string | number>());
+
+// --- Add this new method in the Methods section ---
+async function removeJobFromQueue(jobId: string | number) {
+  if (!confirm(`Are you sure you want to remove Job ID ${jobId} from the queue?`)) return;
+
+  removingJobs.value.add(jobId); // Set loading state for the button
+  try {
+    const response = await api.removeQueuedJob(jobId);
+   
+    // Manually remove it from the local array for instant UI feedback.
+    // The next poll will confirm the state from the backend.
+    queuedJobs.value = queuedJobs.value.filter(j => j.id !== jobId);
+  } catch (error: any) {
+    console.error(`Failed to remove job ${jobId}:`, error);
+  } finally {
+    removingJobs.value.delete(jobId); // Remove loading state
+  }
+}
 
 // --- State ---
 const latestRuns = ref<any[]>([]);

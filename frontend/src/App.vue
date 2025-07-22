@@ -3,7 +3,7 @@
     <v-app-bar app dark :color="theme === 'light' ? 'primary' : ''">
        <v-btn
           
-          :icon="theme === 'light' ? 'mdiWeatherSunny' : 'mdiWeatherNight'"
+          :icon="mdiThemeLightDark"
           slim
           @click="onClick"
         ></v-btn>
@@ -40,9 +40,11 @@ const instrumentStore = useInstrumentStore();
 console.log("BaseURL: " + import.meta.env.VITE_API_BASE_URL);
 
   const theme = ref('light')
+  const icon = ref('mdiWeatherNight')
 
   function onClick () {
     theme.value = theme.value === 'light' ? 'dark' : 'light'
+    icon.value = mdiWeatherSunny
   }
 </script>
 

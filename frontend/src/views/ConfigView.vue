@@ -380,7 +380,7 @@ const saveConfig = async () => {
 const runOptimization = async (configId: number, highPriority: boolean) => {
   showSnackbar(`Queuing optimization job for config ID: ${configId}`, "info");
   try {
-    await api.runOptimization(instrumentStore.selectedInstrument, configId, highPriority);
+    await api.runOptimization(configId, highPriority);
     showSnackbar("Job successfully queued! The worker will now process it.", "success");
   } catch (error: any) {
     showSnackbar(error.response?.data?.message || "Failed to queue job.", "error");

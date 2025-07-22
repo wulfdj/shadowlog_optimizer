@@ -31,8 +31,8 @@ export default {
     deleteConfiguration(id: number) {
         return apiClient.delete(`/configurations/${id}`);
     },
-    runOptimization(instrument: string, configId: number, highPriority: boolean) {
-        return apiClient.post(`/optimize/${instrument}/${configId}`, { highPriority });
+    runOptimization(configId: number, highPriority: boolean) {
+        return apiClient.post(`/optimize/${configId}`, { highPriority });
     },
     getResultList(instrument: string) {
         return apiClient.get(`/results/${instrument}`);
@@ -62,6 +62,9 @@ export default {
     },
     stopJob(jobId: string | number) {
         return apiClient.post(`/optimize/stop/${jobId}`);
+    },
+    removeQueuedJob(jobId: string | number) {
+        return apiClient.post(`/optimize/remove/${jobId}`);
     },
     getTags() {
         return apiClient.get('/tags');

@@ -480,7 +480,7 @@ function getBestMetric(resultData: any, metricKey: 'winRate' | 'profitFactor', a
 function applyAndGo(archivedItem: ArchivedItem) {
     filterStore.setFiltersAndNavigate(
         archivedItem.resultData,
-        archivedItem.configurationData,
+        archivedItem.configuration,
         router
     );
 }

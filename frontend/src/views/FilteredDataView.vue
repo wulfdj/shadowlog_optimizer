@@ -2,7 +2,7 @@
   <v-container fluid>
     <v-row>
       <v-col>
-        <h1>Filtered Data View</h1>
+        <h1>Filtered Data View - {{ filterStore.activeConfiguration.settings.dataSheetName }}</h1>
         <v-btn variant="tonal" @click="goBack" class="mb-4">Back to Results</v-btn>
       </v-col>
     </v-row>
@@ -27,7 +27,7 @@
           <v-card class="mb-4" height="100%">
             <v-card-title>Winning Combinatorial Filters</v-card-title>
             <v-card-text>
-              <pre><code>{{ JSON.stringify(filterStore.activeResult.resultData.combination, null, 2) }}</code></pre>
+              <pre><code>{{ JSON.stringify(filterStore.activeResult.combination, null, 2) }}</code></pre>
             </v-card-text>
           </v-card>
         </v-col>
@@ -85,12 +85,13 @@ function timeToMinutes(timeValue: string): number {
 
 // This function now applies BOTH predefined and combinatorial filters
 function applyAllFilters(trades: any[], config: any, result: any) {
+  //console.log("call applyAllFilters", config, result);
   
   if (!config || !result) return [];
 
   const predefinedFilters = config.settings?.predefinedFilters || [];
   const combination = result.combination || {};
-  console.log("applyAllFilters: ",trades, predefinedFilters, combination);
+  //console.log("applyAllFilters: ",trades, predefinedFilters, combination);
   return trades.filter(trade => {
     // --- Rule 1: Always check if Entered is true ---
     if (trade.Entered !== true) {
@@ -143,7 +144,7 @@ function applyAllFilters(trades: any[], config: any, result: any) {
 // --- The rest of the script remains largely the same ---
 
 const filteredTrades = computed(() => {
-  return applyAllFilters(allTrades.value, filterStore.activeConfiguration, filterStore.activeResult.resultData);
+  return applyAllFilters(allTrades.value, filterStore.activeConfiguration, filterStore.activeResult);
 });
 
 const goBack = () => {
@@ -212,6 +213,8 @@ onMounted(async () => {
     console.log("onMounted: ", timeframe, instrumentStore.selectedInstrument);
     const response = await api.getTradesByTimeframe(instrumentStore.selectedInstrument, timeframe);
     allTrades.value = response.data;
+    //console.log("FilterDataView onMounted - trades", response.data);
+    //applyAllFilters(allTrades.value, filterStore.activeConfiguration, filterStore.activeResult.resultData)
   } catch (error) {
     console.error("Could not fetch trade dataset:", error);
   }

@@ -223,7 +223,9 @@ const getDefaultFormState = () => ({
     { name: 'Breakout Candle Count Max', enabled: false },
     { name: 'Closed In LTA', enabled: true },
     {name: 'S2 Pullback Distance Max', enabled: false},
-    {name: 'S3 Reversal Candle Size Min Max', enabled: false}
+    {name: 'S3 Reversal Candle Size Min Max', enabled: false},
+    {name: 'News', enabled: false},
+    {name: 'Market Open', enabled: false}
   ])
 });
 

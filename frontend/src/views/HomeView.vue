@@ -275,8 +275,7 @@ function applyAndGo(resultData: any) {
     // This assumes the configuration used is not needed for the filtered view,
     // which is the case for our current FilteredDataView.vue.
     // If it were needed, we'd have to store the config ID with the archive.
-    const mockConfiguration = { settings: { predefinedFilters: [] }};
-    filterStore.setFiltersAndNavigate(resultData, resultData.configuration, router);
+    filterStore.setFiltersAndNavigate(resultData.resultData, resultData.configuration, router);
 }
 
 const stoppingJobs = ref(new Set<string | number>());

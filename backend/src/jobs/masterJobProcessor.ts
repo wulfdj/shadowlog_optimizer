@@ -54,7 +54,7 @@ export default async function(job: Job): Promise<any> {
     const startTime = new Date();
     console.log(`--- NODE ORCHESTRATOR FOR JOB ${job.id} STARTED ---`);
 
-    const { configId, instrument } = job.data;
+    const { configId, instrument, highPriority } = job.data;
     
     try {
         if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -79,6 +79,9 @@ export default async function(job: Job): Promise<any> {
         // --- Step 2: Prepare and Execute Go Process ---
         const goExecutablePath = path.join(process.cwd(), 'go-optimizer', 'go-optimizer');
         const goArgs = [instrument, String(configId), String(job.id!)];
+        if (highPriority) {
+            goArgs.push("high");
+        }
         
         console.log(`Executing Go optimizer: ${goExecutablePath} ${goArgs.join(' ')}`);
         

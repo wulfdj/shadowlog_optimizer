@@ -51,6 +51,7 @@ func (pr *ProgressReporter) run() {
 	defer ticker.Stop()
 
 	progressKey := fmt.Sprintf("progress-for-job:%s", pr.jobID)
+	totalJobsKey := fmt.Sprintf("total-jobs-for-job:%s", pr.jobID)
 
 	for {
 		select {
@@ -61,6 +62,7 @@ func (pr *ProgressReporter) run() {
 				progress = int((float64(processed) / float64(pr.totalJobs)) * 100)
 			}
 			pr.rdb.Set(pr.ctx, progressKey, progress, 1*time.Hour)
+			pr.rdb.Set(pr.ctx, totalJobsKey, pr.totalJobs, 1*time.Hour)
 		case <-pr.ctx.Done():
 			return
 		}

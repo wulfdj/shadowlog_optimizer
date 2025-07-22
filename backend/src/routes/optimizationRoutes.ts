@@ -34,7 +34,9 @@ router.get("/active", async (req, res) => {
             activeJobs.map(async (job) => {
                 // --- CORE CHANGE: Fetch progress from our custom Redis key ---
                 const progressKey = `progress-for-job:${job.id!}`;
+                const totalJobsKey = `total-jobs-for-job:${job.id!}`;
                 const progress = await redisClient.get(progressKey);
+                const totalJobs = await redisClient.get(totalJobsKey);
                 
                 return {
                     id: job.id,
@@ -44,7 +46,7 @@ router.get("/active", async (req, res) => {
                     startedAt: job.timestamp,
                     configId: job.data.configId,
                     name: job.data.configurationName,
-                    totalCombinations: job.data.totalCombinations,
+                    totalCombinations: totalJobs ? parseInt(totalJobs, 10) : job.data.totalCombinations,
                     highPriority: job.data.highPriority,
                 };
             })

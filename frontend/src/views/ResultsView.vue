@@ -43,10 +43,11 @@ import api from '@/services/api';
 import { AgGridVue } from "ag-grid-vue3";
 // Removing the explicit ModuleRegistry, as ag-grid-vue3 handles this for community features.
 // This simplifies the code and avoids potential version conflicts.
-import { type GridApi, type GridReadyEvent, type ColDef, themeBalham, colorSchemeLight } from "ag-grid-community";
+import { type GridApi, type GridReadyEvent, type ColDef, themeBalham, colorSchemeLight, AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 import { useFilterStore } from '@/stores/filterStore';
 import { useInstrumentStore } from '@/stores/instrumentStore';
 
+ModuleRegistry.registerModules([AllCommunityModule]);
 const myTheme = themeBalham.withPart(colorSchemeLight);
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();

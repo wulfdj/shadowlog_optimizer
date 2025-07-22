@@ -8,19 +8,11 @@
       </v-col>
     </v-row>
     <v-row>
-        <v-col v-for="job in activeJobs" :key="job.id" cols="12" md="6">
+        <v-col v-for="job in activeJobs" :key="job.id" cols="12" md="4">
             <v-card border>
               <v-card-title class="d-flex justify-space-between align-center">
                 <span class="text-subtitle-1">{{ job.instrument }} - {{ job.name }}</span>
-                <v-btn
-                  color="red-lighten-1"
-                  variant="tonal"
-                  size="small"
-                  @click="stopOptimizationJob(job.id)"
-                  :loading="stoppingJobs.has(job.id)"
-                >
-                  Stop
-                </v-btn>
+                
               </v-card-title>
               <v-card-subtitle>
                 Started: {{ formatTimeAgo(job.startedAt) }}
@@ -44,11 +36,23 @@
                         Calculating combinations...
                       </span>
                 </div>
+                
               </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn
+                  color="red-lighten-1"
+                  variant="tonal"
+                  size="small"
+                  @click="stopOptimizationJob(job.id)"
+                  :loading="stoppingJobs.has(job.id)"
+                >
+                  Stop
+                </v-btn>
+              </v-card-actions>
             </v-card>
         </v-col>
     </v-row>
-    <v-divider class="my-8"></v-divider>
 </template>
 
 <template v-if="queuedJobs.length > 0">
@@ -80,10 +84,6 @@
             </v-col>
         </v-row>
     </template>
-
-    <!-- Divider should only show if there are active or queued jobs -->
-    <v-divider class="my-8" v-if="activeJobs.length > 0 || queuedJobs.length > 0"></v-divider>
-
 
     <!-- Section 1: Latest Optimization Runs -->
     <v-row>

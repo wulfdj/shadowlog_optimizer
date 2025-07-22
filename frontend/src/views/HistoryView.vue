@@ -131,6 +131,7 @@ import { useFilterStore } from '@/stores/filterStore';
 import { getTopResultsByStrategy } from '@/utils/resultProcessor';
 import { mdiDeleteOutline } from '@mdi/js';
 import { useInstrumentStore } from '@/stores/instrumentStore';
+import { da } from 'vuetify/locale';
 
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();
@@ -185,6 +186,7 @@ const handlePanelChange = async (val: unknown) => {
     loadingDetails.value.add(panelId);
     const response = await api.getResultDetails(instrumentStore.selectedInstrument, panelId);
     const data = response.data;
+    console.log("ResultDetails", data);
     if (typeof data.results === 'string') {
         data.results = JSON.parse(data.results);
     }

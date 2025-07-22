@@ -1,6 +1,7 @@
 package optimizer
 
 import (
+	"encoding/json"
 	"fmt"
 	"go-optimizer/utils"
 	"log"
@@ -363,7 +364,7 @@ func PrepareTradesForAnalysis(allTrades []Trade, settings map[string]interface{}
 }
 
 // ProcessFinalResults sorts and filters the raw results from workers to get the top N for each strategy.
-func ProcessFinalResults(rawResults []Result) []Result {
+func ProcessFinalResultsSimple(rawResults []Result) []Result {
 	if len(rawResults) == 0 {
 		return []Result{}
 	}
@@ -402,4 +403,168 @@ func ProcessFinalResults(rawResults []Result) []Result {
 	}
 
 	return endResults
+}
+
+// extractMaxFromCombo is a small, safe helper to get the 'max' value from a numeric range filter in a combination.
+func extractMaxFromCombo(combo Combination, key string) (float64, bool) {
+	// 1. Check if the key (e.g., "Breakout_Distance") exists in the combination.
+	val, ok := combo[key]
+	if !ok {
+		return 0, false
+	}
+
+	// 2. Safely assert the type to a map representing the numeric range.
+	rangeMap, ok := val.(map[string]float64)
+	if !ok {
+		return 0, false
+	}
+
+	// 3. Get the 'max' value from that map.
+	maxVal, ok := rangeMap["max"]
+	if !ok {
+		// This handles cases where there might be only a "min"
+		return 0, false
+	}
+
+	return maxVal, true
+}
+
+// --- MODIFIED FUNCTION ---
+// ProcessFinalResults sorts and filters the raw results to get the top N for each strategy.
+func ProcessFinalResults(rawResults []Result) []Result {
+	if len(rawResults) == 0 {
+		return []Result{}
+	}
+
+	// Define the order of importance for tie-breaking.
+	// We will prioritize maximizing the 'max' value of these keys in this order.
+	var tieBreakerKeys = []string{
+		"Breakout_Distance",
+		"Entry_Distance",
+		"Candle_Size",
+		"Breakout_Candle_Count",
+	}
+
+	topResultsPerStrategy := make(map[string][]Result)
+
+	for _, strategy := range TradeStrategies {
+		strategyName := strategy["name"].(string)
+		var relevantResults []Result
+		for _, res := range rawResults {
+			if score, ok := res.StrategyScores[strategyName]; ok && !math.IsInf(score, 0) && score > 0 {
+				relevantResults = append(relevantResults, res)
+			}
+		}
+
+		// *** MODIFIED SORTING LOGIC ***
+		sort.Slice(relevantResults, func(i, j int) bool {
+			resI := relevantResults[i]
+			resJ := relevantResults[j]
+			scoreI := resI.StrategyScores[strategyName]
+			scoreJ := resJ.StrategyScores[strategyName]
+
+			// Layer 1: Primary sort by score.
+			if scoreI != scoreJ {
+				return scoreI > scoreJ
+			}
+
+			// Layer 2: Tie-breaker logic if scores are equal.
+			for _, key := range tieBreakerKeys {
+				maxI, okI := extractMaxFromCombo(resI.Combination, key)
+				maxJ, okJ := extractMaxFromCombo(resJ.Combination, key)
+
+				// Only compare if both combinations have this tie-breaker key.
+				if okI && okJ {
+					if maxI != maxJ {
+						// The user wants the one with the HIGHER max value to be ranked higher (return true).
+						return maxI > maxJ
+					}
+				}
+			}
+
+			// Layer 3: Final fallback for deterministic sorting if all else is equal.
+			// This prevents results from shuffling between runs.
+			comboIBytes, _ := json.Marshal(resI.Combination)
+			comboJBytes, _ := json.Marshal(resJ.Combination)
+			return string(comboIBytes) < string(comboJBytes) // Arbitrary but stable
+		})
+		// *** END OF MODIFIED SORTING LOGIC ***
+
+		// Keep only the top 10
+		if len(relevantResults) > 10 {
+			relevantResults = relevantResults[:10]
+		}
+		if len(relevantResults) > 0 {
+			topResultsPerStrategy[strategyName] = relevantResults
+		}
+	}
+
+	// --- NEW DEDUPLICATION LOGIC STARTS HERE ---
+
+	// 1. Gather all top candidates into a single slice.
+	var allTopCandidates []Result
+	for _, results := range topResultsPerStrategy {
+		allTopCandidates = append(allTopCandidates, results...)
+	}
+
+	// 2. Sort the entire candidate list by OverallScore first. This is crucial.
+	// This ensures that the first time we see a combination, it's its best-scoring version.
+	sort.Slice(allTopCandidates, func(i, j int) bool {
+		return allTopCandidates[i].OverallScore > allTopCandidates[j].OverallScore
+	})
+
+	// 3. Deduplicate the sorted list.
+	var finalResults []Result
+	seenCombinations := make(map[string]struct{}) // Use a map as a "set" for efficiency.
+
+	for _, result := range allTopCandidates {
+		// Create a unique, canonical key for the combination map by marshaling it to JSON.
+		comboKey, err := json.Marshal(result.Combination)
+		if err != nil {
+			continue // Should not happen, but good practice to handle
+		}
+
+		// Check if we have already added a result for this exact combination.
+		if _, seen := seenCombinations[string(comboKey)]; !seen {
+			// If not seen, add it to our final list...
+			finalResults = append(finalResults, result)
+			// ...and mark this combination as seen.
+			seenCombinations[string(comboKey)] = struct{}{}
+		}
+	}
+
+	// *** NEW/MODIFIED SECTION: Final Robust Sort ***
+	// Apply the same detailed, multi-layer tie-breaking sort to the final, deduplicated list.
+	// This ensures the final ranking is consistent and respects all tie-breaker rules.
+	sort.Slice(finalResults, func(i, j int) bool {
+		resI := finalResults[i]
+		resJ := finalResults[j]
+		scoreI := resI.OverallScore
+		scoreJ := resJ.OverallScore
+
+		// Layer 1: Primary sort by the overall score.
+		if scoreI != scoreJ {
+			return scoreI > scoreJ
+		}
+
+		// Layer 2: Tie-breaker logic if scores are equal.
+		for _, key := range tieBreakerKeys {
+			maxI, okI := extractMaxFromCombo(resI.Combination, key)
+			maxJ, okJ := extractMaxFromCombo(resJ.Combination, key)
+
+			if okI && okJ {
+				if maxI != maxJ {
+					// Rank the one with the HIGHER max value higher.
+					return maxI > maxJ
+				}
+			}
+		}
+
+		// Layer 3: Final fallback for deterministic sorting.
+		comboIBytes, _ := json.Marshal(resI.Combination)
+		comboJBytes, _ := json.Marshal(resJ.Combination)
+		return string(comboIBytes) < string(comboJBytes)
+	})
+
+	return finalResults
 }

@@ -222,7 +222,7 @@ const archiveStrategy = async (resultItem: any, configId: number, strategyName: 
   }
 };
 
-const applyAndGo = (resultItem: any, configuration: any, strategyName: string) => {
+const applyAndGo = (resultItem: any, configuration: any, strategyName: any) => {
   console.log("resultItem", resultItem)
   filterStore.setFiltersAndNavigate(resultItem, configuration, router, strategyName);
 };

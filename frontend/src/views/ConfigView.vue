@@ -251,7 +251,7 @@ const showSnackbar = (message: string, color: string = 'success') => {
 const fetchConfigurations = async (intrument: string) => {
   try {
     const response = await api.getConfigurations(intrument);
-    savedConfigurations.value = response.data.map((c: any) => ({...c, highPriority:false}));
+    savedConfigurations.value = response.data.map((c: any) => ({...c, highPriority:true}));
   } catch (error) {
     console.error(error);
     showSnackbar("Could not load saved configurations.", "error");

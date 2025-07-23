@@ -153,6 +153,7 @@ import api from '@/services/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useRouter } from 'vue-router';
 import { useInstrumentStore } from '@/stores/instrumentStore';
+import {getPredefinedFilter} from '@/utils/extractors'
 
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();
@@ -432,13 +433,6 @@ const showSnackbar = (message: string, color: string = 'success') => {
   snackbar.color = color;
   snackbar.show = true;
 };
-
-// These are the same helpers we created for HistoryView, now reused here.
-function getPredefinedFilter(config: any, filterName: 'Setup' | 'Session'): string | null {
-    const filters = config.settings?.predefinedFilters || [];
-    const found = filters.find((f: any) => f.columnHeader === filterName);
-    return found ? found.condition : null;
-}
 
 async function confirmDelete(itemToDelete: ArchivedItem) {
     if (confirm(`Are you sure you want to permanently delete the strategy "${itemToDelete.name}"?`)) {

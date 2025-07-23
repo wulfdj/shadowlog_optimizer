@@ -129,6 +129,12 @@
             v-on:click="startEdit(config)"
           >
             <template v-slot:append>
+
+                  <div class="text-caption">
+                  <v-chip label color="orange" size="small" class="mr-1">{{ config.settings.dataSheetName }}</v-chip>
+                  <v-chip label color="blue" size="small" class="mr-1">{{ getPredefinedFilter(config, 'Setup') }}</v-chip>
+                </div>
+              
               <v-checkbox v-model="config.highPriority" style="padding-top:20px;padding-right:10px;" label="All Cores"></v-checkbox>
               <v-btn color="error" variant="tonal" size="small" @click="confirmDelete(config)">Delete</v-btn>
               <v-btn color="success" variant="tonal" size="small" @click="runOptimization(config.id, config.highPriority)" class="ml-2">Run</v-btn>
@@ -150,6 +156,7 @@ import { mdiPencil, mdiDelete } from '@mdi/js';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import api from '@/services/api';
 import { useInstrumentStore } from '@/stores/instrumentStore';
+import { getPredefinedFilter } from '@/utils/extractors';
 
 // Create an instance of the store to make its state available to the template.
 const instrumentStore = useInstrumentStore();

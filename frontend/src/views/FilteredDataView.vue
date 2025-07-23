@@ -1,9 +1,12 @@
 <template>
-  <v-container fluid>
+  <v-container>
     <v-row>
       <v-col>
-        <h1>Filtered Data View - {{ filterStore.activeConfiguration.settings.dataSheetName }}</h1>
-        <v-btn variant="tonal" @click="goBack" class="mb-4">Back to Results</v-btn>
+        <h1>Filtered Data View - {{ filterStore.activeConfiguration.settings.dataSheetName }}      <v-chip label color="primary" variant="flat" class="ml-1">{{ filterStore.activeStrategyName }}</v-chip></h1>
+       
+      </v-col>
+      <v-col class="text-right d-flex align-center justify-end">
+         <v-btn variant="tonal" @click="goBack" class="ml-4"><v-icon :icon="mdiArrowLeft"></v-icon> Back</v-btn>
       </v-col>
     </v-row>
 
@@ -14,8 +17,9 @@
     </div>
 
     <template v-else>
+
       <v-row>
-        <v-col cols="12" md="6">
+         <v-col cols="12" md="6">
           <v-card class="mb-4" height="100%">
             <v-card-title>Original Predefined Filters</v-card-title>
             <v-card-text>
@@ -32,6 +36,13 @@
           </v-card>
         </v-col>
       </v-row>
+
+      <!-- The Row Count Display -->
+          <div class="d-flex align-center mb-2" style="padding-top:10px;">
+            <span class="font-weight-medium">
+              Showing {{ filteredTrades.length.toLocaleString() }} matching trades
+            </span>
+          </div>
       
       <div style="height: 70vh; width: 100%;" class="mt-4">
         <ag-grid-vue
@@ -41,6 +52,7 @@
           :defaultColDef="defaultColDef"
           :theme="myTheme"
           style="width: 100%; height: 100%;"
+          @grid-ready="onGridReady"
         ></ag-grid-vue>
       </div>
     </template>
@@ -52,10 +64,24 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFilterStore } from '@/stores/filterStore';
 import api from '@/services/api';
-
 import { AgGridVue } from "ag-grid-vue3";
-import { AllCommunityModule, type ColDef, ModuleRegistry, themeBalham, colorSchemeLight } from 'ag-grid-community';
+import { AllCommunityModule, type ColDef, ModuleRegistry, themeBalham, colorSchemeLight, type GridApi, type GridReadyEvent } from 'ag-grid-community';
 import { useInstrumentStore } from '@/stores/instrumentStore';
+import { mdiArrowLeft, mdiBackspaceOutline } from '@mdi/js';
+
+
+const tradeStrategyColumns = [
+    { name: "1RR PW", winColumnHeader: "TP 1RR PW WIN", tpPipsColumnHeader: "TP 1RR PW PIPS", slPipsColumnHeader: "SL PW PIPS", rangeBreakoutColumn: "", lta: false, s2: false },
+    { name: "1RR STR", winColumnHeader: "TP 1RR STR WIN", tpPipsColumnHeader: "TP 1RR STR PIPS", slPipsColumnHeader: "SL STR PIPS", rangeBreakoutColumn: "", lta: false, s2: false },
+    { name: "SR LTA SL PW", winColumnHeader: "TP SR LTA SL PW WIN", tpPipsColumnHeader: "TP SR LTA PIPS", slPipsColumnHeader: "SL PW PIPS", rangeBreakoutColumn: "LTA Range Breakout", lta: true, s2: false },
+    { name: "SR LTA SL STR", winColumnHeader: "TP SR LTA SL STR WIN", tpPipsColumnHeader: "TP SR LTA PIPS", slPipsColumnHeader: "SL STR PIPS", rangeBreakoutColumn: "LTA Range Breakout", lta: true, s2: false },
+    { name: "SR NEAR SL PW", winColumnHeader: "TP SR NEAREST SL PW WIN", tpPipsColumnHeader: "TP SR NEAREST PIPS", slPipsColumnHeader: "SL PW PIPS", rangeBreakoutColumn: "Nearest Range Breakout", lta: false, s2: false },
+    { name: "SR NEAR SL STR", winColumnHeader: "TP SR NEAREST SL STR WIN", tpPipsColumnHeader: "TP SR NEAREST PIPS", slPipsColumnHeader: "SL STR PIPS", rangeBreakoutColumn: "Nearest Range Breakout", lta: false, s2: false },
+    { name: "SR STATIC SL PW", winColumnHeader: "TP SR STATIC SL PW WIN", tpPipsColumnHeader: "TP SR STATIC PIPS", slPipsColumnHeader: "SL PW PIPS", rangeBreakoutColumn: "Static Range Breakout", lta: false, s2: false },
+    { name: "SR STATIC SL STR", winColumnHeader: "TP SR STATIC SL STR WIN", tpPipsColumnHeader: "TP SR STATIC PIPS", slPipsColumnHeader: "SL STR PIPS", rangeBreakoutColumn: "Static Range Breakout", lta: false, s2: false },
+    { name: "SR CURR SL PW", winColumnHeader: "TP SR CURRENT PW WIN", tpPipsColumnHeader: "TP SR CURRENT PIPS", slPipsColumnHeader: "SL PW PIPS", rangeBreakoutColumn: "Current Range Breakout", lta: false, s2: true },
+    { name: "SR CURR SL STR", winColumnHeader: "TP SR CURRENT STR WIN", tpPipsColumnHeader: "TP SR CURRENT PIPS", slPipsColumnHeader: "SL STR PIPS", rangeBreakoutColumn: "Current Range Breakout", lta: false, s2: true },
+  ];
 
 const myTheme = themeBalham.withPart(colorSchemeLight);
 
@@ -68,6 +94,61 @@ const router = useRouter();
 const filterStore = useFilterStore();
 
 const allTrades = ref<any[]>([]);
+
+// --- We now only need the GridApi ref ---
+const gridApi = ref<GridApi | null>(null);
+
+const onGridReady = (params: GridReadyEvent) => {
+  gridApi.value = params.api;
+  updateColumnVisibility();
+};
+
+// --- CORE FIX 3: Update the function to use gridApi ---
+function updateColumnVisibility() {
+  if (!gridApi.value) return;
+
+  let strategyFound = tradeStrategyColumns.find( (strategy) => {
+    strategy.name === filterStore.activeStrategyName
+  });
+
+  tradeStrategyColumns.forEach(strategy => {
+    //console.log(strategy);
+    if (strategy.name === filterStore.activeStrategyName) {
+      strategyFound = strategy;
+      return;
+    }
+  });
+
+  const tpPipsColumnHeader = strategyFound?.tpPipsColumnHeader.split(" ").join("_");
+  const slPipsColumnHeader = strategyFound?.slPipsColumnHeader.split(" ").join("_"); 
+  const winColumnHeader = strategyFound?.winColumnHeader.split(" ").join("_"); 
+  const pipsHeaders = [slPipsColumnHeader, tpPipsColumnHeader];
+  const rangeBreakoutColumnHeader = strategyFound?.rangeBreakoutColumn.split(" ").join("_"); 
+
+  // Methods are now directly on gridApi
+  const allFieldsInGrid = gridApi.value.getAllGridColumns()?.map(c => c.getColId());
+  //console.log("AllFieldsInGrid:", allFieldsInGrid);
+  //console.log("Win Header:", winColumnHeader);
+
+  //const columnsToShow = visibleColumns.value;
+  const columnsToHide = allFieldsInGrid.filter(field => {
+    
+    if (field.includes("PIPS")) {
+      return !pipsHeaders.includes(field);
+    }
+  
+    if (field.includes("WIN")) {
+      const isWinFieldIncluded =  field === winColumnHeader;
+      //console.log(field, winColumnHeader, isWinFieldIncluded);
+      return !isWinFieldIncluded;
+    } 
+});
+//console.log("ColumnsToHide: ", columnsToHide);
+
+  // Call the methods directly on gridApi
+  //gridApi.value.setColumnsVisible(columnsToShow, true);
+  gridApi.value.setColumnsVisible(columnsToHide, false);
+}
 
 // --- NEW HELPER FOR TIME CONVERSION ---
 function timeToMinutes(timeValue: string): number {
@@ -91,6 +172,24 @@ function applyAllFilters(trades: any[], config: any, result: any) {
 
   const predefinedFilters = config.settings?.predefinedFilters || [];
   const combination = result.combination || {};
+  let strategyFound = tradeStrategyColumns.find( (strategy) => {
+    strategy.name === filterStore.activeStrategyName
+  });
+
+  tradeStrategyColumns.forEach(strategy => {
+    //console.log(strategy);
+    if (strategy.name === filterStore.activeStrategyName) {
+      strategyFound = strategy;
+      return;
+    }
+  });
+
+  const tpPipsColumnHeader = strategyFound?.tpPipsColumnHeader.split(" ").join("_");
+  const slPipsColumnHeader = strategyFound?.slPipsColumnHeader.split(" ").join("_"); 
+  const rangeBreakoutColumnHeader = strategyFound?.rangeBreakoutColumn.split(" ").join("_"); 
+  const isLtaStrategy = strategyFound?.lta;
+  //console.log("headers", filterStore.activeStrategyName, tpPipsColumnHeader, slPipsColumnHeader)
+
   //console.log("applyAllFilters: ",trades, predefinedFilters, combination);
   return trades.filter(trade => {
     // --- Rule 1: Always check if Entered is true ---
@@ -122,18 +221,48 @@ function applyAllFilters(trades: any[], config: any, result: any) {
     // --- Rule 3: Apply the COMBINATORIAL filters from the specific result ---
     for (const columnHeader in combination) {
       const filterCondition = combination[columnHeader];
-      const cellValue = trade[columnHeader];
+      let cellValue = trade[columnHeader];
       
       if (typeof filterCondition === 'object' && filterCondition !== null && (filterCondition.min !== undefined || filterCondition.max !== undefined)) {
         if (cellValue === null || isNaN(cellValue)) return false;
         if (filterCondition.min !== undefined && cellValue < filterCondition.min) return false;
         if (filterCondition.max !== undefined && cellValue > filterCondition.max) return false;
       } else if (columnHeader === 'TimeFilter') {
-        if (filterCondition.minMinutes !== undefined && timeToMinutes(cellValue) < filterCondition.minMinutes) return false;
-        if (filterCondition.maxMinutes !== undefined && timeToMinutes(cellValue) > filterCondition.maxMinutes) return false;
+        cellValue = trade["Time"]
+        //console.log("Found TimeFilter: " , filterCondition, "cell value: ", timeToMinutes(cellValue))
+        if (filterCondition.minMinutes !== undefined && timeToMinutes(cellValue) < filterCondition.minMinutes) {
+          //console.log("Time under min MInutes: ", timeToMinutes(cellValue), ", condition: " , filterCondition.minMinutes)
+          return false;
+        }
+        if (filterCondition.maxMinutes !== undefined && timeToMinutes(cellValue) > filterCondition.maxMinutes) {
+          return false;
+        }
       } else {
         if (cellValue !== filterCondition) return false;
       }
+    }
+
+    if (tpPipsColumnHeader && slPipsColumnHeader) {
+      let isRangeBreakout = false;
+      if (rangeBreakoutColumnHeader) {
+        isRangeBreakout = trade[rangeBreakoutColumnHeader];
+      }
+      let tpPips = trade[tpPipsColumnHeader];
+      const slPips = trade[slPipsColumnHeader];
+
+      if (tpPips === 0 && !isRangeBreakout) return false;
+
+      if (tpPips === 0) {
+        tpPips = slPips;
+      }
+
+      //console.log("tpPips: " +  tpPips)
+      if (tpPips < 1) return false;
+
+      const slToTPRatio = tpPips / slPips;
+      if (slToTPRatio < filterStore.activeConfiguration.settings.minSLToTPRatio) return false;
+      if (slToTPRatio > filterStore.activeConfiguration.settings.maxTPToSLRatio) return false;
+
     }
 
     // If the trade survived all checks, include it.
@@ -157,8 +286,8 @@ const columnDefs = ref<ColDef[]>([
     { headerName: 'Date', field: 'Date', width: 120, pinned: 'left' },
     { headerName: 'Time', field: 'Time', width: 100, pinned: 'left' },
     { headerName: 'Setup', field: 'Setup', width: 90 },
-    { headerName: 'Direction', field: 'Direction', width: 110 },
     { headerName: 'Entered', field: 'Entered', width: 100 },
+    { headerName: 'Canceled After Candles', field: 'Canceled_After_Candles', filter: 'agNumberColumnFilter'},
     
     // --- Candle & Distance Info (Numeric) ---
     { headerName: 'Candle Size', field: 'Candle_Size', filter: 'agNumberColumnFilter' },
@@ -166,15 +295,28 @@ const columnDefs = ref<ColDef[]>([
     { headerName: 'Entry Dist', field: 'Entry_Distance', filter: 'agNumberColumnFilter' },
     { headerName: 'Breakout Candle Count', field: 'Breakout_Candle_Count', filter: 'agNumberColumnFilter' },
     
-    // --- Key Win Conditions ---
-    { headerName: '1RR PW Win', field: 'TP_1RR_PW_WIN' },
-    { headerName: '1RR STR Win', field: 'TP_1RR_STR_WIN' },
-
+    
     // --- Key Pips Info (Numeric) ---
     { headerName: '1RR PW Pips', field: 'TP_1RR_PW_PIPS', filter: 'agNumberColumnFilter' },
     { headerName: '1RR STR Pips', field: 'TP_1RR_STR_PIPS', filter: 'agNumberColumnFilter' },
+    { headerName: 'TP SR NEAREST Pips', field: 'TP_SR_NEAREST_PIPS', filter: 'agNumberColumnFilter' },
+    { headerName: 'TP SR CURRENT Pips', field: 'TP_SR_CURRENT_PIPS', filter: 'agNumberColumnFilter' },
+    { headerName: 'TP SR STATIC Pips', field: 'TP_SR_STATIC_PIPS', filter: 'agNumberColumnFilter' },
+    { headerName: 'TP SR LTA Pips', field: 'TP_SR_LTA_PIPS', filter: 'agNumberColumnFilter' },
     { headerName: 'SL PW Pips', field: 'SL_PW_PIPS', filter: 'agNumberColumnFilter' },
     { headerName: 'SL STR Pips', field: 'SL_STR_PIPS', filter: 'agNumberColumnFilter' },
+
+    // --- Key Win Conditions ---
+    { headerName: '1RR PW Win', field: 'TP_1RR_PW_WIN' },
+    { headerName: '1RR STR Win', field: 'TP_1RR_STR_WIN' },
+    // --- Key Win Conditions ---
+    { headerName: 'TP SR NEAREST SL PW WIN', field: 'TP_SR_NEAREST_SL_PW_WIN' },
+    { headerName: 'TP SR NEAREST SL STR WIN', field: 'TP_SR_NEAREST_SL_STR_WIN' },
+    { headerName: 'TP SR CURRENT SL PW WIN', field: 'TP_SR_CURRENT_SL_PW_WIN' },
+    { headerName: 'TP SR CURRENT SL STR WIN', field: 'TP_SR_CURRENT_SL_STR_WIN' },
+    { headerName: 'TP SR LTA SL PW WIN', field: 'TP_SR_LTA_SL_PW_WIN' },
+    { headerName: 'TP SR LTA SL STR WIN', field: 'TP_SR_LTA_SL_STR_WIN' },
+
 
     // --- Gaussian Trends ---
     { headerName: 'G-Trend 1', field: 'Gaussian_Trend_1' },
@@ -210,7 +352,7 @@ const defaultColDef = ref({
 onMounted(async () => {
   try {
     const timeframe = filterStore.activeConfiguration.settings.dataSheetName;
-    console.log("onMounted: ", timeframe, instrumentStore.selectedInstrument);
+    //console.log("onMounted: ", timeframe, instrumentStore.selectedInstrument);
     const response = await api.getTradesByTimeframe(instrumentStore.selectedInstrument, timeframe);
     allTrades.value = response.data;
     //console.log("FilterDataView onMounted - trades", response.data);

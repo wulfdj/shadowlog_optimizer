@@ -40,8 +40,8 @@ export default {
     getResultDetails(instrument: string, resultId: number) {
         return apiClient.get(`/results/${instrument}/${resultId}`);
     },
-    deleteResult(resultId: number) {
-        return apiClient.delete(`/results/${resultId}`);
+    deleteResult(instrument: string, resultId: number) {
+        return apiClient.delete(`/results/${instrument}/${resultId}`);
     },
     getArchivedResults(instrument: string) {
         return apiClient.get(`/archive/${instrument}`);

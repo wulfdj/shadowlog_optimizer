@@ -36,7 +36,14 @@
                         Calculating combinations...
                       </span>
                 </div>
-                
+                <v-chip
+                          :color="job.highPriority ? 'red' : 'grey'"
+                          size="x-small"
+                          class="mt-1"
+                          label
+                        >
+                          {{ job.highPriority ? 'All Cores' : 'Half Cores' }}
+                        </v-chip>
               </v-card-text>
               <v-card-actions>
                 <v-spacer></v-spacer>
@@ -70,12 +77,12 @@
                         <div class="font-weight-medium">#{{ index + 1 }} in Queue: {{ job.data.configurationName }}</div>
                         <div class="font-weight-medium">Instrument: {{ job.data.instrument }}</div>
                         <v-chip
-                          :color="job.highPriority ? 'blue' : 'grey'"
+                          :color="job.data.highPriority ? 'red' : 'grey'"
                           size="x-small"
                           class="mt-1"
                           label
                         >
-                          {{ job.highPriority ? 'High Priority' : 'Low Priority' }}
+                          {{ job.data.highPriority ? 'All Cores' : 'Half Cores' }}
                         </v-chip>
                       </div>
                        <v-spacer></v-spacer>
@@ -275,7 +282,7 @@ function applyAndGo(resultData: any) {
     // This assumes the configuration used is not needed for the filtered view,
     // which is the case for our current FilteredDataView.vue.
     // If it were needed, we'd have to store the config ID with the archive.
-    filterStore.setFiltersAndNavigate(resultData.resultData, resultData.configuration, router);
+    filterStore.setFiltersAndNavigate(resultData.resultData, resultData.configuration, router, resultData.strategyName);
 }
 
 const stoppingJobs = ref(new Set<string | number>());

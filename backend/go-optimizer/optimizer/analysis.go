@@ -63,9 +63,10 @@ tradeLoop:
 				} else {
 					tradeValue = getField(&trade, parts[1])
 				}
+			} else {
+				tradeValue = getField(&trade, key)
 			}
 
-			tradeValue = getField(&trade, key)
 			if !tradeValue.IsValid() {
 				continue
 			}
@@ -120,6 +121,13 @@ func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]i
 				isWin := getField(&trade, strategy["winColumn"].(string)).Bool()
 				tpPips := getField(&trade, strategy["tpPipsColumn"].(string)).Float()
 				slPips := getField(&trade, strategy["slPipsColumn"].(string)).Float()
+				isBreakout := false
+				if strategy["rangeBreakoutColumn"] != "" {
+					isBreakout = getField(&trade, strategy["rangeBreakoutColumn"].(string)).Bool()
+					if tpPips == 0 && !isBreakout {
+						continue
+					}
+				}
 
 				if slPips == 0 {
 					continue

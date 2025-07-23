@@ -129,7 +129,7 @@
             v-on:click="startEdit(config)"
           >
             <template v-slot:append>
-              <v-checkbox v-model="config.highPriority" size="small" style="padding-top:20px;padding-right:10px;" label="All Cores"></v-checkbox>
+              <v-checkbox v-model="config.highPriority" style="padding-top:20px;padding-right:10px;" label="All Cores"></v-checkbox>
               <v-btn color="error" variant="tonal" size="small" @click="confirmDelete(config)">Delete</v-btn>
               <v-btn color="success" variant="tonal" size="small" @click="runOptimization(config.id, config.highPriority)" class="ml-2">Run</v-btn>
               

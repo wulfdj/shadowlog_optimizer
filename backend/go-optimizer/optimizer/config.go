@@ -75,7 +75,7 @@ var SelectableCombinations = []map[string]interface{}{
 	{
 		"name": "S2 Pullback Distance Max",
 		"criterias": []interface{}{
-			map[string]interface{}{"columnHeader": "S2_Previous_Support_Distance|S2_Previous_Resistance_Distance", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 7.5, 10, 12.5, 15, 20, 25, nil}, "mode": "MAX"},
+			map[string]interface{}{"columnHeader": "S2_Previous_Support_Distance|S2_Previous_Resistance_Distance", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{10, 12.5, 15, 20, 25, 30, 35, 45, nil}, "mode": "MAX"},
 		},
 	},
 	{

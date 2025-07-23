@@ -2,7 +2,7 @@
     <v-card class="fill-height">
           <v-card-title class="d-flex align-center">
             <v-icon color="amber" class="mr-2" :icon="mdiStar"></v-icon>
-            {{ item.configuration.name }}
+            {{ item.configuration.settings.dataSheetName }} - {{ item.configuration.name }}
           </v-card-title>
           <v-card-subtitle><v-chip label color="primary" variant="flat" class="ml-1">{{ item.strategyName }}</v-chip>   Archived on: {{ new Date(item.archivedAt).toLocaleString() }}  </v-card-subtitle>
           

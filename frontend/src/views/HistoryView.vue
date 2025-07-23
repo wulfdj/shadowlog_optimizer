@@ -28,6 +28,7 @@
                 
                 <!-- Column 2: Predefined Filters Summary -->
                 <div class="text-caption">
+                  <v-chip label color="orange" size="small" class="mr-1">{{ run.configuration.settings.dataSheetName }}</v-chip>
                   <v-chip label color="blue" v-if="getPredefinedFilter(run, 'Setup')" size="small" class="mr-1">{{ getPredefinedFilter(run, 'Setup') }}</v-chip>
                   <v-chip label color="blue" v-if="getPredefinedTime(run)" size="small" class="mr-1">{{ getPredefinedTime(run) }}</v-chip>
                 </div>
@@ -104,7 +105,7 @@
                           >
                             Save
                           </v-btn>
-                          <v-btn variant="tonal" size="small" color="primary" @click="applyAndGo(item, run.configuration)">Apply</v-btn>
+                          <v-btn variant="tonal" size="small" color="primary" @click="applyAndGo(item, run.configuration, strategyName)">Apply</v-btn>
                         </td>
                       </tr>
                     </tbody>
@@ -221,8 +222,9 @@ const archiveStrategy = async (resultItem: any, configId: number, strategyName: 
   }
 };
 
-const applyAndGo = (resultItem: any, configuration: any) => {
-  filterStore.setFiltersAndNavigate(resultItem, configuration, router);
+const applyAndGo = (resultItem: any, configuration: any, strategyName: string) => {
+  console.log("resultItem", resultItem)
+  filterStore.setFiltersAndNavigate(resultItem, configuration, router, strategyName);
 };
 
 const fetchHistoryList = async (instrument: string) => {
@@ -298,7 +300,7 @@ function extractTime(run: any, item: any) {
 async function confirmDelete(runToDelete: HistoryRun) {
     if (confirm(`Are you sure you want to permanently delete the history for "${runToDelete.configuration.name}"? This cannot be undone.`)) {
         try {
-            await api.deleteResult(runToDelete.id);
+            await api.deleteResult(instrumentStore.selectedInstrument, runToDelete.id);
             showSnackbar("History entry deleted successfully.", "success");
             // Remove the item from the local array for instant UI feedback
             history.value = history.value.filter(run => run.id !== runToDelete.id);

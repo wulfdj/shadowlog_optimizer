@@ -171,7 +171,7 @@ interface Configuration {
   id: number;
   name: string;
   createdAt: string;
-  settings: object;
+  settings: any;
   highPriority: boolean;
 }
 

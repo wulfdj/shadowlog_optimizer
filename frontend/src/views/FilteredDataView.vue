@@ -222,6 +222,17 @@ function applyAllFilters(trades: any[], config: any, result: any) {
     for (const columnHeader in combination) {
       const filterCondition = combination[columnHeader];
       let cellValue = trade[columnHeader];
+
+      if (columnHeader.includes("|")) {
+        const columns = columnHeader.split("|");
+        const isBuy = trade["Direction"] === "BUY";
+        if (isBuy) {
+          cellValue = trade[columns[0]];
+        } else {
+          cellValue = trade[columns[1]];
+        }
+      }
+
       
       if (typeof filterCondition === 'object' && filterCondition !== null && (filterCondition.min !== undefined || filterCondition.max !== undefined)) {
         if (cellValue === null || isNaN(cellValue)) return false;
@@ -286,6 +297,7 @@ const columnDefs = ref<ColDef[]>([
     { headerName: 'Date', field: 'Date', width: 120, pinned: 'left' },
     { headerName: 'Time', field: 'Time', width: 100, pinned: 'left' },
     { headerName: 'Setup', field: 'Setup', width: 90 },
+    { headerName: 'Direction', field: 'Direction', width: 90 },
     { headerName: 'Entered', field: 'Entered', width: 100 },
     { headerName: 'Canceled After Candles', field: 'Canceled_After_Candles', filter: 'agNumberColumnFilter'},
     
@@ -316,7 +328,8 @@ const columnDefs = ref<ColDef[]>([
     { headerName: 'TP SR CURRENT SL STR WIN', field: 'TP_SR_CURRENT_SL_STR_WIN' },
     { headerName: 'TP SR LTA SL PW WIN', field: 'TP_SR_LTA_SL_PW_WIN' },
     { headerName: 'TP SR LTA SL STR WIN', field: 'TP_SR_LTA_SL_STR_WIN' },
-
+  { headerName: 'S2 Previous Support Distance', field: 'S2_Previous_Support_Distance' },
+    { headerName: 'S2 Previous Resistance Distance', field: 'S2_Previous_Resistance_Distance' },
 
     // --- Gaussian Trends ---
     { headerName: 'G-Trend 1', field: 'Gaussian_Trend_1' },

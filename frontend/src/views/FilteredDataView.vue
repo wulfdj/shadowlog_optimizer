@@ -128,7 +128,7 @@ function updateColumnVisibility() {
   // Methods are now directly on gridApi
   const allFieldsInGrid = gridApi.value.getAllGridColumns()?.map(c => c.getColId());
   //console.log("AllFieldsInGrid:", allFieldsInGrid);
-  //console.log("Win Header:", winColumnHeader);
+  console.log("Win Header:", winColumnHeader);
 
   //const columnsToShow = visibleColumns.value;
   const columnsToHide = allFieldsInGrid.filter(field => {
@@ -139,7 +139,7 @@ function updateColumnVisibility() {
   
     if (field.includes("WIN")) {
       const isWinFieldIncluded =  field === winColumnHeader;
-      //console.log(field, winColumnHeader, isWinFieldIncluded);
+      console.log(field, winColumnHeader, isWinFieldIncluded);
       return !isWinFieldIncluded;
     } 
 });
@@ -299,6 +299,71 @@ const columnDefs = ref<ColDef[]>([
     { headerName: 'Setup', field: 'Setup', width: 90 },
     { headerName: 'Direction', field: 'Direction', width: 90 },
     { headerName: 'Entered', field: 'Entered', width: 100 },
+    { headerName: 'P/L ($)',
+    // We don't use 'field' because this column doesn't exist in the source data.
+    // Instead, we use a valueGetter.
+    valueGetter: (params) => {
+      // params.data contains the entire row's data object (one trade)
+      const data = params.data;
+      if (!data) return null;
+let strategyFound = tradeStrategyColumns.find( (strategy) => {
+    strategy.name === filterStore.activeStrategyName
+  });
+
+      tradeStrategyColumns.forEach(strategy => {
+    //console.log(strategy);
+    if (strategy.name === filterStore.activeStrategyName) {
+      strategyFound = strategy;
+      return;
+    }
+  });
+
+  const tpPipsColumnHeader = strategyFound?.tpPipsColumnHeader.split(" ").join("_");
+  const slPipsColumnHeader = strategyFound?.slPipsColumnHeader.split(" ").join("_"); 
+  const winColumnHeader = strategyFound?.winColumnHeader.split(" ").join("_");
+
+    if (!tpPipsColumnHeader || !slPipsColumnHeader || !winColumnHeader) return;
+
+      // Use the '1RR PW' strategy as the default for P/L calculation.
+      // You could make this selectable in the future.
+      const isWin = data[winColumnHeader]
+      const slPips = data[slPipsColumnHeader]
+      const tpPips = data[tpPipsColumnHeader]
+
+      // Guard against division by zero or invalid data
+      if (slPips === null || slPips === undefined || slPips <= 0) {
+        return 0;
+      }
+
+      if (isWin) {
+        // Profit calculation: (TP Pips * (100 / SL Pips))
+        return tpPips * (100 / slPips);
+      } else {
+        // Loss is always a fixed -100 based on the formula
+        return -100;
+      }
+    },
+    filter: 'agNumberColumnFilter',
+    width: 120,
+    // Add a cell style to color the value based on profit or loss
+    cellStyle: (params) => {
+      if (params.value > 0) {
+        // Return a style object for positive values (profit)
+        return { color: '#34c38f' }; // Using the 'success' color from your theme
+      } else if (params.value < 0) {
+        // Return a style object for negative values (loss)
+        return { color: '#f46a6a' }; // Using the 'error' color from your theme
+      }
+      // Return null for zero or no value
+      return null;
+    },
+    // Format the number to two decimal places
+    valueFormatter: (params) => {
+      if (params.value === null || params.value === undefined) return '';
+      return params.value.toFixed(2);
+    }
+  },
+    
     { headerName: 'Canceled After Candles', field: 'Canceled_After_Candles', filter: 'agNumberColumnFilter'},
     
     // --- Candle & Distance Info (Numeric) ---
@@ -324,8 +389,8 @@ const columnDefs = ref<ColDef[]>([
     // --- Key Win Conditions ---
     { headerName: 'TP SR NEAREST SL PW WIN', field: 'TP_SR_NEAREST_SL_PW_WIN' },
     { headerName: 'TP SR NEAREST SL STR WIN', field: 'TP_SR_NEAREST_SL_STR_WIN' },
-    { headerName: 'TP SR CURRENT SL PW WIN', field: 'TP_SR_CURRENT_SL_PW_WIN' },
-    { headerName: 'TP SR CURRENT SL STR WIN', field: 'TP_SR_CURRENT_SL_STR_WIN' },
+    { headerName: 'TP SR CURRENT PW WIN', field: 'TP_SR_CURRENT_PW_WIN' },
+    { headerName: 'TP SR CURRENT STR WIN', field: 'TP_SR_CURRENT_STR_WIN' },
     { headerName: 'TP SR LTA SL PW WIN', field: 'TP_SR_LTA_SL_PW_WIN' },
     { headerName: 'TP SR LTA SL STR WIN', field: 'TP_SR_LTA_SL_STR_WIN' },
   { headerName: 'S2 Previous Support Distance', field: 'S2_Previous_Support_Distance' },

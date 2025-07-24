@@ -107,7 +107,7 @@ func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]i
 	maxTPToSLRatio, _ := settings["maxTPToSLRatio"].(float64)
 	minWinRate, _ := settings["minWinRate"].(float64)
 	minProfitFactor, _ := settings["minProfitFactor"].(float64)
-	predefinedSetup, _ := settings["predefinedSetup"].(string)
+	isS2Setup := IsS2Setup(settings)
 
 	for _, strategy := range TradeStrategies {
 		name := strategy["name"].(string)
@@ -157,7 +157,7 @@ func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]i
 				}
 			}
 		}
-		if predefinedSetup == "S2" && !isS2 {
+		if isS2Setup && !isS2 {
 			wonTrades, grossProfit, grossLoss, strategyTrades = 0, 0.0, 0.0, 0
 		}
 
@@ -575,4 +575,35 @@ func ProcessFinalResults(rawResults []Result) []Result {
 	})
 
 	return finalResults
+}
+
+func IsS2Setup(settings map[string]interface{}) bool {
+	// 1. Safely get the predefinedFilters slice from the settings map.
+	filtersInterface, ok := settings["predefinedFilters"].([]interface{})
+	if !ok {
+		// If the key doesn't exist or is not a slice, it can't be an S2 run.
+		return false
+	}
+
+	// 2. Iterate through the filters to find the specific "S2" setup filter.
+	for _, filterInterface := range filtersInterface {
+		// Assert that the filter is a map.
+		filter, ok := filterInterface.(map[string]interface{})
+		if !ok {
+			continue // Skip if the element isn't a map.
+		}
+
+		// Check for the exact conditions that define the S2 filter.
+		isSetupColumn := filter["columnHeader"] == "Setup"
+		isS2Condition := filter["condition"] == "S2"
+		isExactType := filter["type"] == "exact" // Good practice to check the type as well
+
+		if isSetupColumn && isS2Condition && isExactType {
+			// We found it. We can stop searching and return true immediately.
+			return true
+		}
+	}
+
+	// If we finish the loop without finding the filter, it doesn't exist.
+	return false
 }

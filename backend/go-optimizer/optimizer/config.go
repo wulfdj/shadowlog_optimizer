@@ -84,6 +84,24 @@ var SelectableCombinations = []map[string]interface{}{
 			map[string]interface{}{"columnHeader": "S3_Reversal_Candle_Size", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{2, 5, 8, 10, 15, 18, 25, 30, nil}, "mode": "PERMUTATION"},
 		},
 	},
+	{
+		"name": "Market Open",
+		"criterias": []interface{}{
+			map[string]interface{}{"columnHeader": "Is_Before_Opening", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+		},
+	},
+	{
+		"name": "News",
+		"criterias": []interface{}{
+			map[string]interface{}{"columnHeader": "Upcoming_News", "type": "exact", "testValues": []interface{}{true, nil}, "thresholds": []interface{}{}, "mode": ""},
+		},
+	},
+	{
+		"name": "Candle Size TP Ratio",
+		"criterias": []interface{}{
+			map[string]interface{}{"columnHeader": "CandleSizeTPRatio", "type": "numericRange", "testValues": []interface{}{}, "thresholds": []interface{}{0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, nil}, "mode": "MAX"},
+		},
+	},
 }
 
 var TradeStrategies = []map[string]interface{}{

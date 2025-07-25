@@ -30,13 +30,13 @@ func CombinationWorker(
 			debugLog.Printf("Worker %d processed %d jobs...", id, jobCount)
 		}
 
-		filteredTrades, ltaCombination := ApplyFilters(inputData.Trades, combo)
+		filteredTrades, ltaCombination, candleSizeTpRatio := ApplyFilters(inputData.Trades, combo)
 		if len(filteredTrades) < int(inputData.Config.Settings["minTradeCount"].(float64)) {
 			atomic.AddUint64(processedCounter, 1)
 			continue
 		}
 
-		metrics := CalculateMetrics(filteredTrades, ltaCombination, inputData.Config.Settings)
+		metrics := CalculateMetrics(filteredTrades, ltaCombination, inputData.Config.Settings, candleSizeTpRatio)
 		if metrics == nil {
 			atomic.AddUint64(processedCounter, 1)
 			continue

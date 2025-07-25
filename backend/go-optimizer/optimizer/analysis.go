@@ -22,10 +22,11 @@ func getField(v *Trade, field string) reflect.Value {
 }
 
 // ApplyFilters takes a list of trades and a combination, returning the trades that match.
-func ApplyFilters(trades []Trade, combo Combination) ([]Trade, bool) {
+func ApplyFilters(trades []Trade, combo Combination) ([]Trade, bool, float64) {
 	// ... (code from original applyFilters, no changes, but ensure it uses utils.TimeToMinutes) ...
 	var filteredTrades []Trade
 	ltaCombination := false
+	candleSizeTpRatio := 0.0
 	if _, ok := combo["Closed_In_LTA"]; ok {
 		ltaCombination = true
 	}
@@ -33,6 +34,12 @@ func ApplyFilters(trades []Trade, combo Combination) ([]Trade, bool) {
 tradeLoop:
 	for _, trade := range trades {
 		for key, condition := range combo {
+
+			if key == "CandleSizeTPRatio" {
+				conditionMap := condition.(map[string]float64)
+				candleSizeTpRatio = conditionMap["max"]
+				continue
+			}
 			if key == "TimeFilter" {
 				timeConditionMap, ok := condition.(map[string]int)
 				if !ok {
@@ -94,12 +101,11 @@ tradeLoop:
 		}
 		filteredTrades = append(filteredTrades, trade)
 	}
-	return filteredTrades, ltaCombination
+	return filteredTrades, ltaCombination, candleSizeTpRatio
 }
 
 // CalculateMetrics computes all strategy metrics for a given set of trades.
-func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]interface{}) map[string]StrategyMetrics {
-	// ... (code from original calculateMetrics, no changes needed) ...
+func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]interface{}, maxCandleSizeTPRatio float64) map[string]StrategyMetrics {
 	results := make(map[string]StrategyMetrics)
 	allSetupsFailed := true
 
@@ -147,6 +153,13 @@ func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]i
 					continue
 				}
 
+				if maxCandleSizeTPRatio != 0.0 {
+					candleSizeTPRatio := tpPips / trade.Candle_Size
+					if candleSizeTPRatio > maxCandleSizeTPRatio {
+						continue
+					}
+				}
+
 				strategyTrades++
 				moneyPerPip := 100.0 / slPips
 				if isWin {
@@ -192,7 +205,6 @@ func CalculateMetrics(trades []Trade, ltaCombination bool, settings map[string]i
 
 // CalculateCompositeScore calculates the final weighted score for a strategy's performance.
 func CalculateCompositeScore(metrics StrategyMetrics, weights map[string]interface{}) float64 {
-	// ... (code from original calculateCompositeScore, no changes needed) ...
 	if metrics.TotalTradesThisStrategy == 0 || metrics.NetProfit < 0 {
 		return math.Inf(-1)
 	}
@@ -230,8 +242,9 @@ func ApplyPredefinedFilters(trades []Trade, filters []interface{}) []Trade {
 tradeLoop:
 	for i := range trades {
 		trade := &trades[i] // Use pointer to avoid copying
-		entered := getField(trade, "Entered")
-		if !entered.Bool() {
+		entered := trade.Entered
+		canceled_after_candles := trade.Canceled_After_Candles
+		if !entered || canceled_after_candles > 0 {
 			continue
 		}
 

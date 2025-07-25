@@ -181,7 +181,7 @@ const savedConfigurations = ref<Configuration[]>([]);
 const snackbar = reactive({ show: false, message: '', color: 'success' });
 
 // --- Static Data for Form Controls ---
-const sheetNameOptions = ['5M', '10M', '15M', '30M', '1H'];
+const sheetNameOptions = ['5M', '10M', '15M', '30M', '1H', '4H'];
 const setupOptions = ['S1', 'S2', 'S3'];
 const sessionOptions = ['ASIA', 'PREFRANKFURT', 'FRANKFURT', 'LONDON', 'LUNCHBREAK', 'NEWYORK', 'UNKNOWN'];
 
@@ -232,7 +232,8 @@ const getDefaultFormState = () => ({
     {name: 'S2 Pullback Distance Max', enabled: false},
     {name: 'S3 Reversal Candle Size Min Max', enabled: false},
     {name: 'News', enabled: false},
-    {name: 'Market Open', enabled: false}
+    {name: 'Market Open', enabled: false},
+    {name: 'Candle Size TP Ratio', enabled: false}
   ])
 });
 

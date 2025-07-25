@@ -192,8 +192,8 @@ function applyAllFilters(trades: any[], config: any, result: any) {
 
   //console.log("applyAllFilters: ",trades, predefinedFilters, combination);
   return trades.filter(trade => {
-    // --- Rule 1: Always check if Entered is true ---
-    if (trade.Entered !== true) {
+    // --- Rule 1: Always check if Entered is true and canceled after candles is 0
+    if (trade.Entered !== true || trade.Canceled_After_Candles > 0) {
       return false;
     }
 

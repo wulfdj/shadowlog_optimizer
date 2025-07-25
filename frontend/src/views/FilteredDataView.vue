@@ -219,6 +219,7 @@ function applyAllFilters(trades: any[], config: any, result: any) {
     }
 
     // --- Rule 3: Apply the COMBINATORIAL filters from the specific result ---
+    let maxCandleSizeTPRatio = 0.0
     for (const columnHeader in combination) {
       const filterCondition = combination[columnHeader];
       let cellValue = trade[columnHeader];
@@ -233,6 +234,15 @@ function applyAllFilters(trades: any[], config: any, result: any) {
         }
       }
 
+      if (columnHeader === "CandleSizeTPRatio") {
+        if (filterCondition.max !== undefined) {
+          maxCandleSizeTPRatio = filterCondition.max;
+          continue;
+        }
+        
+      }
+
+     
       
       if (typeof filterCondition === 'object' && filterCondition !== null && (filterCondition.min !== undefined || filterCondition.max !== undefined)) {
         if (cellValue === null || isNaN(cellValue)) return false;
@@ -269,6 +279,12 @@ function applyAllFilters(trades: any[], config: any, result: any) {
 
       //console.log("tpPips: " +  tpPips)
       if (tpPips < 1) return false;
+
+      if (maxCandleSizeTPRatio !== 0.0) {
+        const candleSizeTPRatio = tpPips / trade["Candle_Size"];
+        if (candleSizeTPRatio > maxCandleSizeTPRatio) return false;
+      }
+
 
       const slToTPRatio = tpPips / slPips;
       if (slToTPRatio < filterStore.activeConfiguration.settings.minSLToTPRatio) return false;
